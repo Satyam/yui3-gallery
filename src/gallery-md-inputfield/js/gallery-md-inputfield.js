@@ -37,10 +37,6 @@ Y.InputField = Y.Base.create(
 				this.set(ID_INPUT, this._inputNode._yuid);
 			}
 		},
-		bindUI: function () {
-			// interim solution because as of 3.4.0, valueChange cannot be listened to by delegation
-			this._eventHandles.push(this._inputNode.after('valueChange', this._afterInputValueChange, this));
-		},
 		_uiSetIdInput: function (value) {
 			this._inputNode.set('id', value);
 			this._labelNode.set('for', value);
@@ -138,7 +134,7 @@ Y.InputField = Y.Base.create(
 			BIND: [ID_INPUT, TYPE, VALUE, LABEL, ERR_MSG]
 		},
 		_EVENTS: {
-			// input: 'valueChange',  // valueChange cannot (yet) be listened to by delegation: see this.bindUI
+			input: 'valueChange', 
 			label: 'click',
 			input: 'blur'
 		},
