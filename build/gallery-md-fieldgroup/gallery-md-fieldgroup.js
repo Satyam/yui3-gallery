@@ -16,10 +16,6 @@ Y.FieldGroup = Y.Base.create(
 	[Y.MakeNode, Y.WidgetParent],
 	{
 		CONTENT_TEMPLATE: '<fieldset></fieldset>',
-		renderUI: function () {
-			this.get(CBX).append(this._makeNode());
-			this._locateNodes();
-		},
 		_uiSetLabel: function (value) {
 			this._labelNode.setContent(value || '');
 		}
@@ -44,5 +40,4 @@ Y.FieldGroup = Y.Base.create(
 );
 
 
-
-}, '@VERSION@' ,{skinnable:true, requires:['base-build', 'widget', 'widget-parent', 'widget-child', 'gallery-makenode']});
+}, '@VERSION@' ,{requires:['base-build', 'widget', 'widget-parent', 'widget-child', 'gallery-makenode'], skinnable:true});

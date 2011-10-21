@@ -14,10 +14,6 @@ Y.FieldGroup = Y.Base.create(
 	[Y.MakeNode, Y.WidgetParent],
 	{
 		CONTENT_TEMPLATE: '<fieldset></fieldset>',
-		renderUI: function () {
-			this.get(CBX).append(this._makeNode());
-			this._locateNodes();
-		},
 		_uiSetLabel: function (value) {
 			this._labelNode.setContent(value || '');
 		}
