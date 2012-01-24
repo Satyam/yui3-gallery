@@ -1,6 +1,14 @@
 /*global YUI*/
 /**
+ * Shows in the browser timeline files produced by the program from <a href="http://thetimelineproj.sourceforge.net/">The Timeline Project</a>.
  * @module timeline
+ */
+/**
+ * Displays within a given container a timeline file from the given URL
+ * @class Y.Timeline
+ * @extends Y.Base
+ * @constructor 
+ * @param config {Object} configuration options
  */
 
 "use strict";
@@ -10,6 +18,7 @@ var Lang = Y.Lang,
 	START = 'start',
 	END = 'end',
 	LEFT = 'left',
+	URL = 'url',
 	CONTAINER = 'container',
 	LOADED = 'loaded',
 	CHANGE = 'Change',
@@ -34,22 +43,44 @@ Y.Timeline = Y.Base.create(
 	Y.Base,
 	[],
 	{
+		/**
+		 * Sets up listeners to respond to setting the URL,the CONTAINER or to the arrival of the timeline file.
+		 * @method initializer
+		 * @param cfg {Object} configuration attributes
+		 * @protected
+		 */
 		initializer: function (cfg) {
 			this.set(STRINGS, Y.Intl.get('gallery-' + TIMELINE));
-			this.after('urlChange', this._load);
+			this.after(URL + CHANGE, this._load);
 			this.after(CONTAINER + CHANGE, this._render);
 			this.after(LOADED + CHANGE, this._render);
-			if (cfg && cfg.url) {
+			if (cfg && cfg[URL]) {
 				this._load();
 			}
-			if (cfg && cfg.container) {
+			if (cfg && cfg[CONTAINER]) {
 				this._render();
 			}
 		},
+		/**
+		 * Returns the boolean value of a given tag in an XML document
+		 * @method _readBoolean
+		 * @param xml {XMLDocument} The XML document or fragment to parse
+		 * @param tag {String} The tag for the value sought
+		 * @return {Boolean} the value read or null if not found
+		 * @private
+		 */
 		_readBoolean: function (xml, tag) {
 			var val = this._readValue(xml, tag);
 			return val?val.toLowerCase() === 'true':null;
 		},
+		/**
+		 * Returns and parses a date from a given tag in an XML document
+		 * @method _readDate
+		 * @param xml {XMLDocument} The XML document or fragment to parse
+		 * @param tag {String} The tag for the value sought
+		 * @return {Date} the value read or null if not found
+		 * @private
+		 */
 		_readDate: function (xml, tag) {
 			var date, time,
 				val = this._readValue(xml, tag);
@@ -62,6 +93,14 @@ Y.Timeline = Y.Base.create(
 				return null;
 			}
 		},
+		/**
+		 * Returns and parses a color value from a given tag in an XML document
+		 * @method _readColor
+		 * @param xml {XMLDocument} The XML document or fragment to parse
+		 * @param tag {String} The tag for the value sought
+		 * @return {String} the RGB value as #rrggbb read or null if not found
+		 * @private
+		 */
 		_readColor: function(xml, tag) {
 			var c = this._readValue(xml, tag),
 				pad = function(val) {
@@ -75,14 +114,36 @@ Y.Timeline = Y.Base.create(
 				return null;
 			}
 		},
+		/**
+		 * Returns the textual contents from a given tag in an XML document
+		 * @method _readValue
+		 * @param xml {XMLDocument} The XML document or fragment to parse
+		 * @param tag {String} The tag for the value sought
+		 * @return {String} the content read or null if not found
+		 * @private
+		 */
 		_readValue: function(xml, tag) {
 			var el = this._readEl(xml,tag);
 			return el?el.textContent:null;
 		},
+		/**
+		 * Returns the XML element from given tag in an XML document
+		 * @method _readEl
+		 * @param xml {XMLDocument} The XML document or fragment to parse
+		 * @param tag {String} The tag for the value sought
+		 * @return {XMLElement} the element read or null if not found
+		 * @private
+		 */
 		_readEl: function (xml, tag) {
 			var el = xml.getElementsByTagName(tag);
 			return (el && el.length)?el[0]:null;
 		},
+		/**
+		 * Reads the categories information
+		 * @method _xmlReadCategories
+		 * @param cats {XMLFragment} collection of categories
+		 * @private
+		 */
 		_xmlReadCategories: function(cats) {
 			var c = {};
 			Y.each(cats.children, function (cat) {
@@ -94,6 +155,12 @@ Y.Timeline = Y.Base.create(
 			this.set(CATEGORIES, c);
 
 		},
+		/**
+		 * Reads the view information
+		 * @method _xmlReadView
+		 * @param view {XMLFragment} view information
+		 * @private
+		 */
 		_xmlReadView: function (view) {
 			var range = this._readEl(view,'displayed_period'),
 				h = [],
@@ -109,6 +176,12 @@ Y.Timeline = Y.Base.create(
 			}
 			this.set('hiddenCats', h);
 		},
+		/**
+		 * Reads the events to show
+		 * @method _xmlReadEvents
+		 * @param cats {XMLFragment} collection of events
+		 * @private
+		 */
 		_xmlReadEvents: function (events) {
 			this.events = [];
 			Y.each(events.children, function (event) {
@@ -127,14 +200,26 @@ Y.Timeline = Y.Base.create(
 			}, this);
 
 		},
+		/**
+		 * Sugar method to set the URL of the timeline file
+		 * @method load
+		 * @param url {String} URL of the timeline file
+		 * @chainable
+		 */
 		load: function (url) {
-			this.set('url', url);
+			this.set(URL, url);
 			return this;
 		},
+		/**
+		 * Requests the timeline information from the configured URL and parses it when it arrives.
+		 * Signals its arrival by setting the 'loaded' configuration attribute
+		 * @method _load
+		 * @private
+		 */
 		_load: function () {
 			var self = this;
 			self.set(LOADED, false);
-			Y.io(self.get('url'), {
+			Y.io(self.get(URL), {
 				on: {
 					success: function (id, o) {
 						var xml = o.responseXML;
@@ -148,12 +233,25 @@ Y.Timeline = Y.Base.create(
 
 
 		},
+		/**
+		 * Adjusts the region information for the given node to make it relative to the container position
+		 * @method _getRegion
+		 * @param node {Y.Node} node to find the region
+		 * @return {Y.Region} region of the node relative to the container
+		 * @private
+		 */
 		_getRegion: function (node) {
 			var reg = node.get(REGION);
 			reg.left -= this._left;
 			reg.top -= this._top;
 			return reg;
 		},
+		/**
+		 * Draws the bars corresponding to the events in the container
+		 * @method _resize
+		 * @param container {Y.Node} optional, the container for the bars.  It reads the container attribute if none given
+		 * @private
+		 */
 		_resize: function (container) {
 			container = container || this.get(CONTAINER);
 
@@ -236,6 +334,12 @@ Y.Timeline = Y.Base.create(
 			}
 			container.one('.' + cName('noCat')).setStyle('display',hasNoCategory?'block':'none');
 		},
+		/**
+		 * Locates the bars so that they don't overlap one another.  Range events are drawn above the middle line,
+		 * point events below.  Range events may be moved below if the start and end dates are indistinguishable
+		 * @method _locate
+		 * @private
+		 */
 		_locate: function () {
 			var width, left, region,
 				middle = this._height / 2,
@@ -273,6 +377,12 @@ Y.Timeline = Y.Base.create(
 
 			},this);				
 		},
+		/**
+		 * Draws the grid, adjusting the interval in between lines from an hour to ten thousand years
+		 * depending on the zoom factor
+		 * @method _grid
+		 * @private
+		 */
 		_grid: function () {
 			var start = this.get(START),
 				end = this.get(END),
@@ -345,13 +455,25 @@ Y.Timeline = Y.Base.create(
 
 
 		},
+		/**
+		 * Sugar method to set the container attribute.
+		 * @method render
+		 * @param container {String | Node} CSS selector or reference to the container node.
+		 * @chainable 
+		 */
 		render: function (container) {
 			this.set(CONTAINER, container);
+			return this;
 		},
+		/**
+		 * Renders the timeline in response to the container being set and the timeline file loaded
+		 * @method _render
+		 * @private
+		 */
 		_render:function() {
 			var container = this.get(CONTAINER);
 			if (!( container && this.get(LOADED))) {
-				return this;
+				return;
 			}
 			container.addClass(cName());
 
@@ -383,11 +505,22 @@ Y.Timeline = Y.Base.create(
 			container.on('gesturemove', this._dragMove, {}, this);
 			container.on('gesturemoveend', this._dragMove, {}, this);
 			Y.on('mousewheel', this._mouseWheel, this);
-			return this;
+			return;
 		},
+		/**
+		 * Hides de extended description
+		 * @method _hideDescr
+		 * @private
+		 */
 		_hideDescr: function() {
 			this._descr.setStyle('display', 'none');
 		},
+		/**
+		 * Shows the extended description above the event bar clicked
+		 * @method _showDescr
+		 * @param ev {Event Façade} to help locate the bar clicked
+		 * @private
+		 */
 		_showDescr: function(ev) {
 			var bar = ev.target,
 				event = bar.getData(EVENT),
@@ -421,6 +554,12 @@ Y.Timeline = Y.Base.create(
 				descr.setStyle(TOP, Math.round(barRegion.top - descrRegion.height - 20) + PX);
 			}
 		},
+		/**
+		 * Saves the initial position of a drag and the initial values of the start and end dates
+		 * @method _startMove
+		 * @param ev {Event Façade} information about the cursor at the start
+		 * @private
+		 */
 		_startMove: function (ev) {
 			ev.halt();
 			this._hideDescr();
@@ -428,6 +567,13 @@ Y.Timeline = Y.Base.create(
 			this._start = this.get(START);
 			this._end = this.get(END);
 		},
+		/**
+		 * Respondes to the movement of the cursor at whatever rate the system sends the signal
+		 * by updating the start and end times of the display, either panning or zooming
+		 * @method _dragMove
+		 * @param ev {Event Façade} event information, specially cursor coordinates and state of the control key
+		 * @private
+		 */
 		_dragMove: function (ev) {
 
 			var start = this._start,
@@ -447,6 +593,12 @@ Y.Timeline = Y.Base.create(
 				this._grid();
 			}
 		},
+		/**
+		 * Listener for the mouse wheel change.  It will zoom or pan depending on the state of the control key.
+		 * @method _mouseWheel
+		 * @param ev {Event Façade} the state of the control key and the direction of the mouse wheel roll is extracted from it
+		 * @private
+		 */
 		_mouseWheel: function (ev) {
 			if (ev.target.ancestor('#' + this.get(CONTAINER).get('id'),true)) {
 				ev.halt();
@@ -470,34 +622,81 @@ Y.Timeline = Y.Base.create(
 	},
 	{
 		ATTRS: {
+			/**
+			 * Stores the categories, indexed by category name.
+			 * @attribute categories
+			 * @type {Object}
+			 * @default {}
+			 */
+				
 			categories: {
 				validator: Lang.isObject,
 				value:{}					
 			},
+			/**
+			 * Array of the names of the categories hidden
+			 * @attribute hiddenCats
+			 * @type {Array}
+			 * @default []
+			 */
 			hiddenCats: {
 				validator: Lang.isArray,
 				value:[]
 			},
+			/**
+			 * Start time (left edge) of the current timeline, in miliseconds
+			 * @attribute start
+			 * @type integer
+			 * @default one month before current time
+			 */
 			start: {
 				validator: Lang.isNumber,
 				value: new Date(Date.now() - 1000*60*60*24*30).getTime() // previous month
 			},
+			/**
+			 * End time (right edge) of the current timeline, in miliseconds
+			 * @attribute end
+			 * @type integer
+			 * @default one month after current time
+			 */
 			end: {
 				validator: Lang.isNumber,
 				value: new Date(Date.now() + 1000*60*60*24*30).getTime() // next month
 			},
+			/**
+			 * A reference to the HTML for rendering the timeline
+			 * @attribute container
+			 * @type {String | Y.Node}  A reference to a node or a CSS selector.  It will always be returned as a Node reference
+			 */
 			container: {
 				setter: function (val) {
 					return Y.one(val);
 				}	
 			},
+			/**
+			 * URL of the timeline file to be displayed
+			 * @attribute url
+			 * @type {String}
+			 */
 			url: {
 				validator: Lang.isString
 			},
+			/**
+			 * Signals whether the timeline file has been loaded or not
+			 * @attribute loaded
+			 * @type {Boolean}
+			 * @default false
+			 */
 			loaded: {
 				validator: Lang.isBoolean,
 				value: false
 			},
+			/**
+			 * Localizable strings meant to be seen by the user
+			 * @attribute strings
+			 * @type {Object}
+			 * @default English strings
+			 */
 			strings: {
 				value: {
 					categories:'Categories',
