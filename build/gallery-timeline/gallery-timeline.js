@@ -94,7 +94,7 @@ Y.Timeline = Y.Base.create(
 			}
 			this.publish(SHOW_DESCR, {
 				defaultFn: this._defShowDescr
-			})
+			});
 		},
 		/**
 		 * Returns the boolean value of a given tag in an XML document
