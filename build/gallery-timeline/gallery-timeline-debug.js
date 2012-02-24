@@ -804,4 +804,4 @@ Y.Timeline = Y.Base.create(
 
 
 
-}, '@VERSION@' ,{optional:['intl'], lang:['en', 'es'], skinnable:true, requires:['node', 'io-base', 'base', 'event-mousewheel', 'event-gestures', 'classnamemanager', 'datatype', 'event-hover']});
+}, '@VERSION@' ,{skinnable:true, optional:['intl'], lang:['en', 'es'], requires:['node', 'io-base', 'base', 'event-mousewheel', 'event-gestures', 'classnamemanager', 'datatype', 'event-hover']});
