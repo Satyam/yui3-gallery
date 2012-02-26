@@ -1,12 +1,12 @@
 /**
-Attribute-based data model with APIs for getting, setting, validating, and
+Record-based data model with APIs for getting, setting, validating, and
 syncing attribute values, as well as events for being notified of model changes.
  
 @module gallery-md-model
 **/
  
 /**
-Attribute-based data model with APIs for getting, setting, validating, and
+Record-based data model with APIs for getting, setting, validating, and
 syncing attribute values, as well as events for being notified of model changes.
  
 In most cases, you'll want to create your own subclass of Y.GalleryModel and
@@ -80,13 +80,11 @@ to override the parse() method to parse non-generic server responses.
 				 * Fired when new data has been received from the remote source.  
 				 * It will be fired even on a save operation if the response contains values.
 				 * The parsed values can be altered on the before (on) listener.
-				 * The event cannot be prevented.
 				 * @event loaded
 				 * @param {Object} ev.response Response data as received from the remote source
 				 * @param {Object} ev.parsed Data as returned from the parse method.
 				 */
 				this.publish(EVT_LOADED, {
-					preventable: false,
 					defaultFn:this._defDataLoaded
 				});
 				/**
@@ -152,6 +150,12 @@ to override the parse() method to parse non-generic server responses.
 			getValue: function (name) {
 				return (name?this._values[name]:Y.clone(this._values));
 			},
+			/**
+			 * Returns a hash with all values using the field names as keys.
+			 * It is an alias for getValue() with no arguments.
+			 * @method getValues
+			 * @return {Object} a hash with all the fields with the field names as keys.
+			 */ 
 			getValues: function() {
 				return this.getValue();
 			},
@@ -274,9 +278,11 @@ to override the parse() method to parse non-generic server responses.
 			 * @private
 			 */
 			_defDataLoaded: function (ev) {
-				var parsed = ev.parsed;
-				this._loadedValues = parsed;
-				this.setValues(parsed, ev.src);			
+				var self = this;
+				self.setValues(ev.parsed, ev.src);
+				self._set(IS_MODIFIED, false);
+				self._set(IS_NEW, false);
+				self._loadedValues = Y.clone(self._values);
 			},
 			/**
 				Loads this model from the server.
@@ -324,10 +330,6 @@ to override the parse() method to parse non-generic server responses.
 
 						facade.parsed = self.parse(response);
 						self.fire(EVT_LOADED, facade);
-						self.changed = {};
-						self._set(IS_MODIFIED, false);
-						self._set(IS_NEW, false);
-
 					}
 
 					callback && callback.apply(null, arguments);
@@ -430,7 +432,6 @@ to override the parse() method to parse non-generic server responses.
 
 							self._set(IS_MODIFIED, false);
 							self._set(IS_NEW, false);
-							self.changed = {};
 							self._loadedValues = Y.clone(self._values);
 							self.fire(EVT_SAVED, facade);
 						}
@@ -621,7 +622,6 @@ to override the parse() method to parse non-generic server responses.
 				 * return an object with the state of each individual field keyed by field name,
 				 * but the state of the record as a whole, which is far more useful.
 				 * @attribute isModified
-				 * @readOnly
 				 * @type Boolean
 				 * @default false
 				 */
@@ -640,7 +640,6 @@ to override the parse() method to parse non-generic server responses.
 				 * return an object with the state of each individual field keyed by field name,
 				 * but the state of the record as a whole, which is far more useful.
 				 * @attribute isNew
-				 * @readOnly
 				 * @type Boolean
 				 * @default true
 				 */
