@@ -595,6 +595,12 @@
 							A.isTrue(curr >= prev, 'each element should be greater than the previous: ' + curr + ' >= ' +  prev);
 							prev = curr;
 						});
+						A.areEqual(2, m.find(4, false), 'index of record with fieldOne 4 should be 2');
+						A.areNotEqual(2, m.get('index'), 'model should not be positioned on this record (by index)')
+						A.areNotEqual(4, m.getValue(F1), 'model should not be positioned on this record (by value)');
+						A.isNull(m.find(11), 'there should be no odd values in the model except 5 (see above) ');
+						A.areEqual(3, m.find(5), 'record with fieldOne 5 should be at position 3');
+						A.areEqual(5, m.getValue(F1), 'Record should be positioned on it');
 					}
 					
 				}));
