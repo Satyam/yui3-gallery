@@ -877,8 +877,8 @@ to override the parse() method to parse non-generic server responses.
 				
 			self._values = current._values;
 			self._loadedValues = current._loadedValues;
-			self._set(IS_NEW, current.isNew);
-			self._set(IS_MODIFIED, current.isModified);
+			self.__setStateVal(IS_NEW, current.isNew);
+			self.__setStateVal(IS_MODIFIED, current.isModified);
 			YArray.each(self._preserve, function (name) {
 				self[name] = current[name];
 			});
