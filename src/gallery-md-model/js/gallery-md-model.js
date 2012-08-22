@@ -289,14 +289,13 @@ to override the parse() method to parse non-generic server responses.
 					url = [];
 				if (name) {
 					return encodeURIComponent(Lang.isValue(value) ? String(value) : '');
-				} else {
-					YObject.each(value, function (value, name) {
-						if (Lang.isValue(value)) {
-							url.push(encodeURIComponent(name) + '=' + encodeURIComponent(value));
-						}
-					});
-					return url.join('&');
-				}
+				} 
+				YObject.each(value, function (value, name) {
+					if (Lang.isValue(value)) {
+						url.push(encodeURIComponent(name) + '=' + encodeURIComponent(value));
+					}
+				});
+				return url.join('&');
 			},
 
 			/**
@@ -613,10 +612,8 @@ to override the parse() method to parse non-generic server responses.
 					var ret = {};
 					ret[name] = this._values[name] !== this._loadedValues[name];
 					return ret;
-				} else {
-					return value;
 				}
-
+				return value;
 			},
 			_isNewGetter: function (value, name) {
 				name = name.split(DOT);
@@ -625,9 +622,8 @@ to override the parse() method to parse non-generic server responses.
 					var ret = {};
 					ret[name] = !this._loadedValues.hasOwnProperty(name);
 					return ret;
-				} else {
-					return value;
 				}
+				return value;
 			},
 			_primaryKeysSetter: function (value) {
 				if (this._primaryKeys && this._primaryKeys.length) {
@@ -644,9 +640,8 @@ to override the parse() method to parse non-generic server responses.
 					var ret = {};
 					ret[name] = value.indexOf(name) !== -1;
 					return ret;
-				} else {
-					return (value || []).concat();  // makes sure to return a copy, not the original.
 				}
+				return (value || []).concat();  // makes sure to return a copy, not the original.
 			}
 		},
 		{
@@ -938,11 +933,8 @@ to override the parse() method to parse non-generic server responses.
 			if (this.get(IS_MODIFIED) || !this.get(IS_NEW)) {
 				this._shelve();
 			}
-			if (arguments.length === 2) {
-				this._shelves.splice(index, 1);
-			} else {
-				index = this._shelves.length;
-			}
+			index = index || this._shelves.length;
+			this._shelves.splice(index, 0, {});
 			this._currentIndex = index;
 			this._initNew();
 			this.setValues(values, ADD);
@@ -1073,9 +1065,8 @@ to override the parse() method to parse non-generic server responses.
 				this._currentIndex = value = parseInt(value,10);
 				this._fetch(value);
 				return value;
-			} else {
-				return Y.Attribute.INVALID_VALUE;
 			}
+			return Y.Attribute.INVALID_VALUE;
 		},
 		/**
 		 * Getter for the _index_ attribute
@@ -1461,7 +1452,7 @@ to override the parse() method to parse non-generic server responses.
 			var shelves = this._shelves,
 				index = this._currentIndex + 1, 
 				l = shelves.length;
-			while (index < l && !(index in shelves)) {
+			while (index < l && !shelves.hasOwnProperty(index)) {
 				index +=1;
 			}
 			if (index === l) {
@@ -1484,7 +1475,7 @@ to override the parse() method to parse non-generic server responses.
 			}
 			var shelves = this._shelves,
 				index = this._currentIndex - 1;
-			while (index >= 0 && !(index in shelves)) {
+			while (index >= 0 && !shelves.hasOwnProperty(index)) {
 				index -=1;
 			}
 			if (index === -1) {
