@@ -19,6 +19,9 @@ to override the parse() method to parse non-generic server responses.
 @param [cfg] {Object} Initial configuration attribute plus:
 @param [cfg.values] {Object}  Sets initial values for the model.  
 	Model will be marked as new and not modified (as if just loaded).
+	If GalleryModel is extended with any of the multi-record extensions,
+	this will not work until <a href="http://yuilibrary.com/projects/yui3/ticket/2529898">this bug</a> is fixed:
+	Use `new Y.GalleryModel().add(values)` instead.
 @extends Base
 **/
 	"use strict";
@@ -41,7 +44,7 @@ to override the parse() method to parse non-generic server responses.
 	
 
 	Y.GalleryModel = Y.Base.create(
-		'gallery-md-model',
+		NAME,
 		Y.Base, 
 		[],
 		{
@@ -136,11 +139,23 @@ to override the parse() method to parse non-generic server responses.
 				});
 				cfg = cfg || {};
 				if (Lang.isObject(cfg.values)) {
-					this.setValues(cfg.values, 'init');
-					this._set(IS_MODIFIED, false);
-					this._set(IS_NEW, true);
-					this._loadedValues = Y.clone(this._values);
+					this.after('init',this._setInitialValues);
 				}
+			},
+			/**
+			 * Sets the initial values if any were provided to the constructor.
+			 * It is only ever called after the initialization of this class and all its extensions
+			 * and only if the arguments to the constructor had a `values` attribute
+			 * @method _setInitialValues
+			 * @param ev {EventFacade} in particular:
+			 * @param ev.cfg.values {Object} values to be set
+			 * @private
+			 */
+			_setInitialValues: function (ev) {
+				this.setValues(ev.cfg.values, 'init');
+				this._set(IS_MODIFIED, false);
+				this._set(IS_NEW, true);
+				this._loadedValues = Y.clone(this._values);
 			},
 			/**
 			 * Destroys this model instance and removes it from its containing lists, if
@@ -358,7 +373,6 @@ to override the parse() method to parse non-generic server responses.
 			 * @private
 			 */
 			_stoppedDataLoaded: function (ev) {
-				console.log('stopped', ev);
 				ev.details[0].callback.call(this, 'Load event halted');
 			},
 			/**
@@ -942,6 +956,21 @@ to override the parse() method to parse non-generic server responses.
 			this._addPreserve('_values','_loadedValues','_isNew','_isModified');
 		},
 		/**
+		 * Sets the initial values if any were provided to the constructor.
+		 * It is only ever called after the initialization of this class and all its extensions
+		 * and only if the arguments to the constructor had a `values` attribute.
+		 * It overrides the {{#crossLink "Y.GalleryModel/_setInitialValues"}}{{/crossLink}} 
+		 * so as to handle arrays.
+		 * @method _setInitialValues
+		 * @param ev {EventFacade} in particular:
+		 * @param ev.cfg.values {Object} values to be set
+		 * @private
+		 */
+		_setInitialValues: function (ev) {
+			this.add(ev.cfg.values);
+		},
+
+		/**
 		 * Index of the shelf for the record being exposed.
 		 * Use {{#crossLink "Y.GalleryModel/index"}}{{/crossLink}} attribute to check/set the index value.
 		 * @property _currentIndex
@@ -1025,20 +1054,30 @@ to override the parse() method to parse non-generic server responses.
 		 * Adds a new record at the index position given or at the end.
 		 * The new record becomes the current.
 		 * @method add
-		 * @param values {Object} set of values to set
+		 * @param values {Object|Array} set of values to set. 
+		 * If it is an array, it will call itself for each of the items in it.
 		 * @param [index] {Integer} position to add the values at or at the end if not provided.  
 		 * @chainable
 		 */
 		add: function(values, index) {
-			if (this.get(IS_MODIFIED) || !this.get(IS_NEW)) {
-				this._shelve();
+			var self = this;
+			if (Lang.isArray(values)) {
+				YArray.each(values, function (value, i) {
+					self.add(value, (index?index + i:undefined));
+				});
+				return self;
 			}
-			index = index || this._shelves.length;
-			this._shelves.splice(index, 0, {});
-			this._currentIndex = index;
-			this._initNew();
-			this.setValues(values, ADD);
-			return this;
+			if (self.get(IS_MODIFIED) || !self.get(IS_NEW)) {
+				self._shelve();
+			}
+			if (index === undefined) {
+				index = self._shelves.length;
+			}
+			self._shelves.splice(index, 0, {});
+			self._currentIndex = index;
+			self._initNew();
+			self.setValues(values, ADD);
+			return self;
 		},
 		/**
 		 * Executes the given function for each record in the set.
@@ -1435,10 +1474,15 @@ to override the parse() method to parse non-generic server responses.
 		 * method, ignoring the index position requested, if any.
 		 * The new record becomes the current.
 		 * @method add
-		 * @param values {Object} set of values to set
+		 * @param values {Object|Array} set of values to set. 
+		 * If it is an array, it will call itself for each of the items in it.
 		 * @chainable
 		 */
 		add: function(values) {
+			if (Lang.isArray(values)) {
+				YArray.each(values, this.add, this);
+				return this;
+			}
 			var shelves = this._shelves,
 				index = 0;
 				
@@ -1529,10 +1573,15 @@ to override the parse() method to parse non-generic server responses.
 		 * Adds a new record at the index position given by its primary key.
 		 * The new record becomes the current.
 		 * @method add
-		 * @param values {Object} set of values to set
+		 * @param values {Object|Array} set of values to set. 
+		 * If it is an array, it will call itself for each of the items in it.
 		 * @chainable
 		 */
 		add: function(values) {
+			if (Lang.isArray(values)) {
+				YArray.each(values, this.add, this);
+				return this;
+			}
 			if (this.get(IS_MODIFIED) || !this.get(IS_NEW)) {
 				this._shelve();
 			}
