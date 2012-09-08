@@ -4,3 +4,8 @@ build_rollup_tmp*/
 .*.swp
 .svn
 CVS/
+/src/gallery-timeline/nbproject/private/
+/src/gallery-flyweight-tree/nbproject/private/
+/src/gallery-fwt-treeview/nbproject/private/
+/src/gallery-fwt-treeview/nbproject/
+/src/gallery-flyweight-tree/nbproject/
