@@ -5,16 +5,14 @@
 * It relies for most of its functionality on the flyweight manager object,
 * which contains most of the code.
 * @module gallery-flyweight-tree
-* @submodule flyweight-tree-tnode
-* @main flyweightmanager
 */
 
 /**
 * An implementation of the flyweight pattern.  This class should not be instantiated directly.
 * Instances of this class can be requested from the flyweight manager class
-* @class FlyweightTreeNode
+* @class Y.FlyweightTreeNode
 * @extends Y.Base
-* @constructor  Do instantiate directly.
+* @constructor  Do not instantiate directly.
 */
 FWNode = Y.Base.create(
 	'flyweight-tree-node',
@@ -113,6 +111,7 @@ FWNode = Y.Base.create(
 		 */
 		_slideTo: function (node) {
 			this._node = node;
+			this._stateProxy = node;
 		},
 		/**
 		 * Executes the given function on each of the child nodes of this node.
@@ -155,7 +154,7 @@ FWNode = Y.Base.create(
 		 * Setter for the expanded configuration attribute.
 		 * It renders the child nodes if this branch has never been expanded.
 		 * Then sets the className on the node to the static constants 
-		 * CNAME\_COLLAPSED or CNAME\_EXPANDED from Y.FlyweightTreeManager
+		 * CNAME_COLLAPSED or CNAME_EXPANDED from Y.FlyweightTreeManager
 		 * @method _expandedSetter
 		 * @param value {Boolean} new value for the expanded attribute
 		 * @private
@@ -203,20 +202,12 @@ FWNode = Y.Base.create(
 		_dynamicLoadReturn: function (response) {
 			var self = this,
 				node = self._node,
-				root = self._root,
-				initNodes = function (children) {
-					YArray.each(children, function (child) {
-						child._parent = node;
-						child._root = root;
-						child.id = child.id || Y.guid();
-						initNodes(child.children || []);
-					});
-				};
+				root = self._root;
 
 			if (response) {
-				initNodes(response);
 
 				node.children = response;
+				root._initNodes(node);
 				self._renderChildren();
 			} else {
 				node.isLeaf = true;
@@ -239,35 +230,6 @@ FWNode = Y.Base.create(
 				s += fwNode._getHTML(index, array.length, depth + 1);
 			});
 			Y.one('#' + node.id + ' .' + CNAME_CHILDREN).setContent(s);
-		},
-		/**
-		 * Generic setter for values stored in the underlying node.
-		 * @method _genericSetter
-		 * @param value {Any} Value to be set.
-		 * @param name {String} Name of the attribute to be set.
-		 * @protected
-		 */
-		_genericSetter: function (value, name) {
-			if (this._state.data[name].initializing) {
-				// This is to let the initial value pass through
-				return value;
-			}
-			this._node[name] = value;
-			// this is to prevent the initial value to be changed.
-			return  Y.Attribute.INVALID_VALUE;
-		},
-		/**
-		 * Generic getter for values stored in the underlying node.
-		 * @method _genericGetter
-		 * @param value {Any} Value stored by Attribute (not used).
-		 * @param name {String} Name of the attribute to be read.
-		 * @return {Any} Value read.
-		 * @protected
-		 */
-		_genericGetter: function (value, name) {
-			// since value is never actually set, 
-			// value will always keep the default (initial) value.
-			return this._node[name] || value;
 		},
 		/**
 		 * Prevents this instance from being returned to the pool and reused.
@@ -369,56 +331,56 @@ FWNode = Y.Base.create(
 		TEMPLATE: '<div id="{id}" class="{cname_node}"><div class="content">{label}</div><div class="{cname_children}">{children}</div></div>',
 		/**
 		 * CCS className constant to use as the class name for the DOM element representing the node.
-		 * @property CNAME\_NODE
+		 * @property CNAME_NODE
 		 * @type String
 		 * @static
 		 */
 		CNAME_NODE: CNAME_NODE,
 		/**
 		 * CCS className constant to use as the class name for the DOM element that will containe the children of this node.
-		 * @property CNAME\_CHILDREN
+		 * @property CNAME_CHILDREN
 		 * @type String
 		 * @static
 		 */
 		CNAME_CHILDREN: CNAME_CHILDREN,
 		/**
 		 * CCS className constant added to the DOM element for this node when its state is not expanded.
-		 * @property CNAME\_COLLAPSED
+		 * @property CNAME_COLLAPSED
 		 * @type String
 		 * @static
 		 */
 		CNAME_COLLAPSED: CNAME_COLLAPSED,
 		/**
 		 * CCS className constant added to the DOM element for this node when its state is expanded.
-		 * @property CNAME\_EXPANDED
+		 * @property CNAME_EXPANDED
 		 * @type String
 		 * @static
 		 */
 		CNAME_EXPANDED: CNAME_EXPANDED,
 		/**
 		 * CCS className constant added to the DOM element for this node when it has no children.
-		 * @property CNAME\_NOCHILDREN
+		 * @property CNAME_NOCHILDREN
 		 * @type String
 		 * @static
 		 */
 		CNAME_NOCHILDREN: CNAME_NOCHILDREN,
 		/**
 		 * CCS className constant added to the DOM element for this node when it is the first in the group.
-		 * @property CNAME\_FIRSTCHILD
+		 * @property CNAME_FIRSTCHILD
 		 * @type String
 		 * @static
 		 */
 		CNAME_FIRSTCHILD: CNAME_FIRSTCHILD,
 		/**
 		 * CCS className constant added to the DOM element for this node when it is the last in the group.
-		 * @property CNAME\_LASTCHILD
+		 * @property CNAME_LASTCHILD
 		 * @type String
 		 * @static
 		 */
 		CNAME_LASTCHILD: CNAME_LASTCHILD,
 		/**
 		 * CCS className constant added to the DOM element for this node when dynamically loading its children.
-		 * @property CNAME\_LOADING
+		 * @property CNAME_LOADING
 		 * @type String
 		 * @static
 		 */
@@ -433,6 +395,7 @@ FWNode = Y.Base.create(
 			 */
 
 			root: {
+				_bypassProxy: true,
 				readOnly: true,
 				getter: function() {
 					return this._root;
@@ -449,9 +412,7 @@ FWNode = Y.Base.create(
 			 * @default undefined
 			 */
 			template: {
-				validator: Lang.isString,
-				getter: '_genericGetter',
-				setter: '_genericSetter'
+				validator: Lang.isString
 			},
 			/**
 			 * Label for this node. Nodes usually have some textual content, this is the place for it.
@@ -461,8 +422,6 @@ FWNode = Y.Base.create(
 			 */
 			label: {
 				validator: Lang.isString,
-				getter: '_genericGetter',
-				setter: '_genericSetter',
 				value: ''
 			},
 			/**
@@ -474,7 +433,6 @@ FWNode = Y.Base.create(
 			 * @readOnly
 			 */
 			id: {
-				getter: '_genericGetter',
 				readOnly: true
 			},
 			/**
@@ -485,6 +443,7 @@ FWNode = Y.Base.create(
 			 * @readOnly
 			 */
 			depth: {
+				_bypassProxy: true,
 				readOnly: true,
 				getter: function () {
 					var count = 0, 
@@ -503,6 +462,7 @@ FWNode = Y.Base.create(
 			 * @default true
 			 */
 			expanded: {
+				_bypassProxy: true,
 				getter: '_expandedGetter',
 				setter: '_expandedSetter'
 			}

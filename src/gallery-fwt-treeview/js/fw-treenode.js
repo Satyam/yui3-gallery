@@ -1,4 +1,17 @@
-Y.FWTreeNode = Y.Base.create(
+/** This class must not be generated directly.  
+ *  Instances of it will be provided by Y.FWTreeView as required.
+ *  
+ *  Subclasses might be defined based on it.  
+ *  Usually, they will add further attributes and redefine the TEMPLATE to 
+ *  show those extra attributes.
+ *  
+ *  @module gallery-fwt-treeview
+ *    
+ *  @class Y.FWTreeNode
+ *  @extends Y.FlyweightTreeNode
+ *  @constructor
+ */
+ Y.FWTreeNode = Y.Base.create(
 	'fw-treenode',
 	Y.FlyweightTreeNode,
 	[],
@@ -30,7 +43,7 @@ Y.FWTreeNode = Y.Base.create(
 		 * @type String
 		 * @static
 		 */
-		TEMPLATE: Lang.sub('<li id="{id}" class="{cname_node}"><div class="{toggle}"></div><div class="{icon}"></div><div class="{selection}"></div><div class="{content}">{label}</div><ul class="{cname_children}">{children}</ul></li>', CNAMES),
+		TEMPLATE: Lang.sub('<li id="{id}" class="{cname_node}"><div class="{toggle}"></div><div class="{icon}"></div><div class="{selection}"></div><div class="{content}">{label}</div><ul class="{cname_children}">{children}</ul></li>', CNAMES)
 	}
 );
 

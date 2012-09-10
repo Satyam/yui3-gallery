@@ -23,19 +23,17 @@ var Lang = Y.Lang,
 
 /**
 * @module gallery-flyweight-tree
-* @submodule flyweight-tree-manager
 *
 */
 
 /**
  * Extension to handle its child nodes by using the flyweight pattern.
- * @class FlyweightTreeManager
+ * @class Y.FlyweightTreeManager
  * @constructor
  */
 FWMgr = function () {
-	this._pool = {
-		_default: []
-	};
+	this._pool = {};
+	this._initialValues = {};
 };
 
 FWMgr.ATTRS = {
@@ -94,6 +92,14 @@ FWMgr.prototype = {
 	 */
 	_pool: null,
 	/**
+	 * Initial values for node attributes.  
+	 * Contains default values for each node type, indexed by node type and attribute name.
+	 * @property _initialValues
+	 * @type Object
+	 * @private
+	 */
+	_initialValues: null,
+	/**
 	 * List of dom events to be listened for at the outer contained and fired again
 	 * at the node once positioned over the source node.
 	 * @property _domEvents
@@ -111,27 +117,70 @@ FWMgr.prototype = {
 	 * For TreeView, the configuration property is named `tree`, for a form, it is named `form`.
 	 * It also sets initial values for some default properties such as `parent` references and `id` for all nodes.
 	 * @method _loadConfig
-	 * @param tree {Object} configuration tree
+	 * @param tree {Array} Configuration for the first level of nodes. 
+	 * Contains objects with the following attributes:
+	 * @param tree.label {String} Text or HTML markup to be shown in the node
+	 * @param [tree.expanded=true] {Boolean} Whether the children of this node should be visible.
+	 * @param [tree.children] {Array} Further definitions for the children of this node
+	 * @param [tree.type=Y.FWTreeNode] {Y.FWTreeNode | String} Class used to create instances for this node.  
+	 * It can be a reference to an object or a name that can be resolved as `Y[name]`.
+	 * @param [tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing this node.
+	 * @param [tree.template] {String} Template for this particular node. 
 	 * @protected
 	 */
 	_loadConfig: function (tree) {
-		this._tree = {
+		var self = this;
+		self._tree = {
 			children: Y.clone(tree)
 		};
-		var initNodes = function (parent) {
-			Y.Array.each(parent.children, function (child) {
-				child._parent = parent;
-				child.id = child.id || Y.guid();
-				initNodes(child);
+		self._initNodes(this._tree);
+		if (self._domEvents) {
+			Y.Array.each(self._domEvents, function (event) {
+				self.after(event, self._afterDomEvent, self);
 			});
-		};
-		initNodes(this._tree);
-		if (this._domEvents) {
-			Y.Array.each(this._domEvents, function (event) {
-				this.after(event, this._afterDomEvent, this);
-			}, this);
 		}
 	},
+	/** Initializes the node configuration with default values and management info.
+	 * @method _initNodes
+	 * @param parent {Object} Parent of the nodes to be set
+	 * @private
+	 */
+	_initNodes: function (parent) {
+		var self = this, 
+			fwNode,
+			type,
+			defaultValues,
+			name,
+			value;
+		Y.Array.each(parent.children, function (child) {
+			type = child.type || DEFAULT_POOL;
+			defaultValues = self._initialValues[type];
+			if (!defaultValues) {
+				defaultValues = {type:child.type};
+				fwNode = self._poolFetch(defaultValues);
+					for (name in fwNode._attrs) {
+					if (fwNode._attrs.hasOwnProperty(name) && ['initialized','destroyed'].indexOf(name) === -1) {
+						value = fwNode._state.get(name,'value');
+						if (value !== undefined) {
+							defaultValues[name] =  value;
+							fwNode._state.remove(name,'value');
+						}
+					}
+				}
+				self._initialValues[type] = defaultValues;
+				self._poolReturn(fwNode);
+			}
+			Y.Object.each(defaultValues, function(value, name) {
+				if (child[name] === undefined) {
+					child[name] = value;
+				}
+			});
+			child._parent = parent;
+			child.id = child.id || Y.guid();
+			self._initNodes(child);
+		});
+	},
+
 	/** Generic event listener for DOM events listed in the {{#crossLink "_domEvents"}}{{/crossLink}} array.
 	 *  It will locate the node that caused the event, slide a suitable instance on it and fire the
 	 *  same event on that node.
@@ -168,7 +217,7 @@ FWMgr.prototype = {
 			// If the type of object cannot be identified, return a default type.
 			type = type.NAME || DEFAULT_POOL;
 		}
-		pool = this._pool[type] || [];
+		pool = this._pool[type];
 		if (pool === undefined) {
 			pool = this._pool[type] = [];
 		}
@@ -223,6 +272,10 @@ FWMgr.prototype = {
 		if (Type) {
 			newNode = new Type();
 			if (newNode instanceof Y.FlyweightTreeNode) {
+				// I need to do this otherwise Attribute will initialize the real node with default values
+				newNode._slideTo({});
+				newNode.getAttrs();
+				// That's it (see above)
 				newNode._root =  this;
 				newNode._slideTo(node);
 				return newNode;
@@ -326,16 +379,14 @@ Y.FlyweightTreeManager = FWMgr;
 * It relies for most of its functionality on the flyweight manager object,
 * which contains most of the code.
 * @module gallery-flyweight-tree
-* @submodule flyweight-tree-tnode
-* @main flyweightmanager
 */
 
 /**
 * An implementation of the flyweight pattern.  This class should not be instantiated directly.
 * Instances of this class can be requested from the flyweight manager class
-* @class FlyweightTreeNode
+* @class Y.FlyweightTreeNode
 * @extends Y.Base
-* @constructor  Do instantiate directly.
+* @constructor  Do not instantiate directly.
 */
 FWNode = Y.Base.create(
 	'flyweight-tree-node',
@@ -434,6 +485,7 @@ FWNode = Y.Base.create(
 		 */
 		_slideTo: function (node) {
 			this._node = node;
+			this._stateProxy = node;
 		},
 		/**
 		 * Executes the given function on each of the child nodes of this node.
@@ -476,7 +528,7 @@ FWNode = Y.Base.create(
 		 * Setter for the expanded configuration attribute.
 		 * It renders the child nodes if this branch has never been expanded.
 		 * Then sets the className on the node to the static constants 
-		 * CNAME\_COLLAPSED or CNAME\_EXPANDED from Y.FlyweightTreeManager
+		 * CNAME_COLLAPSED or CNAME_EXPANDED from Y.FlyweightTreeManager
 		 * @method _expandedSetter
 		 * @param value {Boolean} new value for the expanded attribute
 		 * @private
@@ -524,20 +576,12 @@ FWNode = Y.Base.create(
 		_dynamicLoadReturn: function (response) {
 			var self = this,
 				node = self._node,
-				root = self._root,
-				initNodes = function (children) {
-					YArray.each(children, function (child) {
-						child._parent = node;
-						child._root = root;
-						child.id = child.id || Y.guid();
-						initNodes(child.children || []);
-					});
-				};
+				root = self._root;
 
 			if (response) {
-				initNodes(response);
 
 				node.children = response;
+				root._initNodes(node);
 				self._renderChildren();
 			} else {
 				node.isLeaf = true;
@@ -560,35 +604,6 @@ FWNode = Y.Base.create(
 				s += fwNode._getHTML(index, array.length, depth + 1);
 			});
 			Y.one('#' + node.id + ' .' + CNAME_CHILDREN).setContent(s);
-		},
-		/**
-		 * Generic setter for values stored in the underlying node.
-		 * @method _genericSetter
-		 * @param value {Any} Value to be set.
-		 * @param name {String} Name of the attribute to be set.
-		 * @protected
-		 */
-		_genericSetter: function (value, name) {
-			if (this._state.data[name].initializing) {
-				// This is to let the initial value pass through
-				return value;
-			}
-			this._node[name] = value;
-			// this is to prevent the initial value to be changed.
-			return  Y.Attribute.INVALID_VALUE;
-		},
-		/**
-		 * Generic getter for values stored in the underlying node.
-		 * @method _genericGetter
-		 * @param value {Any} Value stored by Attribute (not used).
-		 * @param name {String} Name of the attribute to be read.
-		 * @return {Any} Value read.
-		 * @protected
-		 */
-		_genericGetter: function (value, name) {
-			// since value is never actually set, 
-			// value will always keep the default (initial) value.
-			return this._node[name] || value;
 		},
 		/**
 		 * Prevents this instance from being returned to the pool and reused.
@@ -690,56 +705,56 @@ FWNode = Y.Base.create(
 		TEMPLATE: '<div id="{id}" class="{cname_node}"><div class="content">{label}</div><div class="{cname_children}">{children}</div></div>',
 		/**
 		 * CCS className constant to use as the class name for the DOM element representing the node.
-		 * @property CNAME\_NODE
+		 * @property CNAME_NODE
 		 * @type String
 		 * @static
 		 */
 		CNAME_NODE: CNAME_NODE,
 		/**
 		 * CCS className constant to use as the class name for the DOM element that will containe the children of this node.
-		 * @property CNAME\_CHILDREN
+		 * @property CNAME_CHILDREN
 		 * @type String
 		 * @static
 		 */
 		CNAME_CHILDREN: CNAME_CHILDREN,
 		/**
 		 * CCS className constant added to the DOM element for this node when its state is not expanded.
-		 * @property CNAME\_COLLAPSED
+		 * @property CNAME_COLLAPSED
 		 * @type String
 		 * @static
 		 */
 		CNAME_COLLAPSED: CNAME_COLLAPSED,
 		/**
 		 * CCS className constant added to the DOM element for this node when its state is expanded.
-		 * @property CNAME\_EXPANDED
+		 * @property CNAME_EXPANDED
 		 * @type String
 		 * @static
 		 */
 		CNAME_EXPANDED: CNAME_EXPANDED,
 		/**
 		 * CCS className constant added to the DOM element for this node when it has no children.
-		 * @property CNAME\_NOCHILDREN
+		 * @property CNAME_NOCHILDREN
 		 * @type String
 		 * @static
 		 */
 		CNAME_NOCHILDREN: CNAME_NOCHILDREN,
 		/**
 		 * CCS className constant added to the DOM element for this node when it is the first in the group.
-		 * @property CNAME\_FIRSTCHILD
+		 * @property CNAME_FIRSTCHILD
 		 * @type String
 		 * @static
 		 */
 		CNAME_FIRSTCHILD: CNAME_FIRSTCHILD,
 		/**
 		 * CCS className constant added to the DOM element for this node when it is the last in the group.
-		 * @property CNAME\_LASTCHILD
+		 * @property CNAME_LASTCHILD
 		 * @type String
 		 * @static
 		 */
 		CNAME_LASTCHILD: CNAME_LASTCHILD,
 		/**
 		 * CCS className constant added to the DOM element for this node when dynamically loading its children.
-		 * @property CNAME\_LOADING
+		 * @property CNAME_LOADING
 		 * @type String
 		 * @static
 		 */
@@ -754,6 +769,7 @@ FWNode = Y.Base.create(
 			 */
 
 			root: {
+				_bypassProxy: true,
 				readOnly: true,
 				getter: function() {
 					return this._root;
@@ -770,9 +786,7 @@ FWNode = Y.Base.create(
 			 * @default undefined
 			 */
 			template: {
-				validator: Lang.isString,
-				getter: '_genericGetter',
-				setter: '_genericSetter'
+				validator: Lang.isString
 			},
 			/**
 			 * Label for this node. Nodes usually have some textual content, this is the place for it.
@@ -782,8 +796,6 @@ FWNode = Y.Base.create(
 			 */
 			label: {
 				validator: Lang.isString,
-				getter: '_genericGetter',
-				setter: '_genericSetter',
 				value: ''
 			},
 			/**
@@ -795,7 +807,6 @@ FWNode = Y.Base.create(
 			 * @readOnly
 			 */
 			id: {
-				getter: '_genericGetter',
 				readOnly: true
 			},
 			/**
@@ -806,6 +817,7 @@ FWNode = Y.Base.create(
 			 * @readOnly
 			 */
 			depth: {
+				_bypassProxy: true,
 				readOnly: true,
 				getter: function () {
 					var count = 0, 
@@ -824,6 +836,7 @@ FWNode = Y.Base.create(
 			 * @default true
 			 */
 			expanded: {
+				_bypassProxy: true,
 				getter: '_expandedGetter',
 				setter: '_expandedSetter'
 			}

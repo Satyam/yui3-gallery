@@ -1,5 +1,4 @@
-/**
- * Creates a Treeview using the FlyweightTreeManager extension to handle its nodes.
+/** Creates a Treeview using the FlyweightTreeManager extension to handle its nodes.
  * It creates the tree based on an object passed as the `tree` attribute in the constructor.
  * @example
  *
@@ -21,11 +20,20 @@
 
 	]});
 	tv.render('#container');
- * @class FWTreeView
+ * @module gallery-fwt-treeview
+ * @class Y.FWTreeView
  * @extends Y.Widget
  * @uses Y.FlyweightTreeManager
  * @constructor
- * @param config {Object} Configuration attributes
+ * @param config {Object} Configuration attributes, amongst them:
+ * @param config.tree {Array} Array of objects defining the first level of nodes.
+ * @param config.tree.label {String} Text of HTML markup to be shown in the node
+ * @param [config.tree.expanded=true] {Boolean} Whether the children of this node should be visible.
+ * @param [config.tree.children] {Array} Further definitions for the children of this node
+ * @param [config.tree.type=Y.FWTreeNode] {Y.FWTreeNode | String} Class used to create instances for this node.
+ * It can be a reference to an object or a name that can be resolved as `Y[name]`.
+ * @param [config.tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing this node.
+ * @param [config.tree.template] {String} Template for this particular node. 
  */
 Y.FWTreeView = Y.Base.create(
 	'fw-treeview',
@@ -54,7 +62,7 @@ Y.FWTreeView = Y.Base.create(
 		},
 		/**
 		 * Overrides the default CONTENT_TEMPLATE to make it an unordered list instead of a div
-		 * @property CONTENT\_TEMPLATE
+		 * @property CONTENT_TEMPLATE
 		 * @type String
 		 */
 		CONTENT_TEMPLATE: '<ul></ul>'
