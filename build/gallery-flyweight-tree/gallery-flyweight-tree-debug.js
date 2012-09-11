@@ -92,14 +92,6 @@ FWMgr.prototype = {
 	 */
 	_pool: null,
 	/**
-	 * Initial values for node attributes.  
-	 * Contains default values for each node type, indexed by node type and attribute name.
-	 * @property _initialValues
-	 * @type Object
-	 * @private
-	 */
-	_initialValues: null,
-	/**
 	 * List of dom events to be listened for at the outer contained and fired again
 	 * at the node once positioned over the source node.
 	 * @property _domEvents
@@ -146,35 +138,8 @@ FWMgr.prototype = {
 	 * @private
 	 */
 	_initNodes: function (parent) {
-		var self = this, 
-			fwNode,
-			type,
-			defaultValues,
-			name,
-			value;
+		var self = this;
 		Y.Array.each(parent.children, function (child) {
-			type = child.type || DEFAULT_POOL;
-			defaultValues = self._initialValues[type];
-			if (!defaultValues) {
-				defaultValues = {type:child.type};
-				fwNode = self._poolFetch(defaultValues);
-					for (name in fwNode._attrs) {
-					if (fwNode._attrs.hasOwnProperty(name) && ['initialized','destroyed'].indexOf(name) === -1) {
-						value = fwNode._state.get(name,'value');
-						if (value !== undefined) {
-							defaultValues[name] =  value;
-							fwNode._state.remove(name,'value');
-						}
-					}
-				}
-				self._initialValues[type] = defaultValues;
-				self._poolReturn(fwNode);
-			}
-			Y.Object.each(defaultValues, function(value, name) {
-				if (child[name] === undefined) {
-					child[name] = value;
-				}
-			});
 			child._parent = parent;
 			child.id = child.id || Y.guid();
 			self._initNodes(child);
@@ -196,9 +161,28 @@ FWMgr.prototype = {
 		}
 	},
 	/**
+	 * Returns a string identifying the type of the object to handle the node
+	 * or null if type was not a FlyweightNode instance.
+	 * @method _getTypeString
+	 * @param node {Object} Node in the tree configuration
+	 * @return {String} type of node.
+	 * @private
+	 */
+	_getTypeString: function (node) {
+		var type = node.type || DEFAULT_POOL;
+		if (!Lang.isString(type)) {
+			if (Lang.isObject(type)) {
+				type = type.NAME;
+			} else {
+				throw "Node contains unknown type";
+			}
+		}
+		return type;
+	},
+	/**
 	 * Pulls from the pool an instance of the type declared in the given node
 	 * and slides it over that node.
-	 * If there are no instances of the given type in the pool, a new one will be created via {{#crossLink "_getNode"}}{{/crossLink}}
+	 * If there are no instances of the given type in the pool, a new one will be created via {{#crossLink "_createNode"}}{{/crossLink}}
 	 * If an instance is held (see: {{#crossLink "Y.FlyweightTreeNode/hold"}}{{/crossLink}}), it will be returned instead.
 	 * @method _poolFetch
 	 * @param node {Object} reference to a node within the configuration tree
@@ -208,14 +192,10 @@ FWMgr.prototype = {
 	_poolFetch: function(node) {
 		var pool,
 			fwNode = node._held,
-			type = node.type || DEFAULT_POOL;
+			type = this._getTypeString(node);
 			
 		if (fwNode) {
 			return fwNode;
-		}
-		if (Lang.isObject(type)) {
-			// If the type of object cannot be identified, return a default type.
-			type = type.NAME || DEFAULT_POOL;
 		}
 		pool = this._pool[type];
 		if (pool === undefined) {
@@ -226,7 +206,7 @@ FWMgr.prototype = {
 			fwNode._slideTo(node);
 			return fwNode;
 		}
-		return this._getNode(node);
+		return this._createNode(node);
 	},
 	/**
 	 * Returns the FlyweightTreeNode instance to the pool.
@@ -240,14 +220,7 @@ FWMgr.prototype = {
 			return;
 		}
 		var pool,
-			type = fwNode._node.type || DEFAULT_POOL;
-		if (Lang.isObject(type)) {
-			type = type.NAME;
-			if (!type) {
-				// Don't know where to put it, drop it.
-				return;
-			}
-		}
+			type = this._getTypeString(fwNode._node);
 		pool = this._pool[type];
 		if (pool) {
 			pool.push(fwNode);
@@ -258,12 +231,12 @@ FWMgr.prototype = {
 	 * Returns a new instance of the type given in node or the 
 	 * {{#crossLink "defaultType"}}{{/crossLink}} if none specified
 	 * and slides it on top of the node provided.
-	 * @method _getNode
+	 * @method _createNode
 	 * @param node {Object} reference to a node within the configuration tree
 	 * @return {Y.FlyweightTreeNode} Instance of the corresponding subclass of FlyweightTreeNode
 	 * @protected
 	 */
-	_getNode: function (node) {
+	_createNode: function (node) {
 		var newNode,
 			Type = node.type || this.get('defaultType');
 		if (Lang.isString(Type)) {
@@ -272,7 +245,8 @@ FWMgr.prototype = {
 		if (Type) {
 			newNode = new Type();
 			if (newNode instanceof Y.FlyweightTreeNode) {
-				// I need to do this otherwise Attribute will initialize the real node with default values
+				// I need to do this otherwise Attribute will initialize 
+				// the real node with default values when activating a lazyAdd attribute.
 				newNode._slideTo({});
 				newNode.getAttrs();
 				// That's it (see above)
