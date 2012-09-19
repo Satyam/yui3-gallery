@@ -96,7 +96,12 @@ Y.FWTreeView = Y.Base.create(
 			 */
 			defaultType: {
 				value: 'FWTreeNode'
+			},
+			toggleOnLabelClick: {
+				value:false,
+				validator:Lang.isBoolean
 			}
+
 
 		}
 
