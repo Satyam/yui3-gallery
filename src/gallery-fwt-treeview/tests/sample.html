@@ -3,8 +3,7 @@
 	<head>
 		<title></title>
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<script type="text/javascript" src="http://yui.yahooapis.com/3.6.0/build/yui/yui-min.js"></script>
-		<link REL=stylesheet type="text/css" HREF="style.css">
+		<script type="text/javascript" src="http://yui.yahooapis.com/3.7.1/build/yui/yui-min.js"></script>
 	</head>
 	<body class="yui3-skin-sam">
 		<a href="out/index.html">API docs</a>
@@ -22,7 +21,8 @@
 			YUI({
 				groups: {
 					gallery: {
-						base:'../../../build/',
+//						base:'../../../build/',
+						base:'http://satyam.github.com/yui3-gallery/build/',
 						modules: {
 							'gallery-flyweight-tree': {
 								path:'gallery-flyweight-tree/gallery-flyweight-tree.js',
@@ -33,18 +33,6 @@
 								requires: ["gallery-flyweight-tree","widget","base-build"],
 								skinnable: true
 							}
-//							form: {
-//								path: 'form.js',
-//								requires: ['gallery-flyweight-tree', 'widget','base-build','input-field']
-//							},
-//							"input-field": {
-//								path: 'input-field.js',
-//								requires: ['flyweightnode','base-build']
-//							},
-//							"field-set": {
-//								path: 'field-set.js',
-//								requires: ['flyweightnode','base-build']
-//							}
 						}
 					}
 				},
