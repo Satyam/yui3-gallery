@@ -15,6 +15,8 @@ var Lang = Y.Lang,
 	CNAME_FIRSTCHILD = cName('first-child'),
 	CNAME_LASTCHILD = cName('last-child'),
 	CNAME_LOADING = cName('loading'),
+	BYPASS_PROXY = "_bypassProxy",
+	VALUE = 'value',
 	YArray = Y.Array,
 	FWMgr,
 	FWNode;

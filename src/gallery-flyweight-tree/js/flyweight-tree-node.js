@@ -52,26 +52,19 @@ FWNode = Y.Base.create(
 		_getHTML: function(index, nSiblings, depth) {
 			// assumes that if you asked for the HTML it is because you are rendering it
 			var self = this,
-				// this is a patch until this:  http://yuilibrary.com/projects/yui3/ticket/2532712  gets fixed.
-				getAttrs = function() {
-					var o = {},
-					i, l, attr,
-
-					attrs = Y.Object.keys(self._state.data);
-
-					for (i = 0, l = attrs.length; i < l; i+=1) {
-						attr = attrs[i];
-						o[attr] = self.get(attr);
-					}
-
-					return o;
-				},
 				node = this._node,
-				attrs = getAttrs(),
+				attrs = this.getAttrs(),
 				s = '', 
-				templ = node.template || this.constructor.TEMPLATE,
+				templ = node.template,
 				childCount = node.children && node.children.length,
-				nodeClasses = [CNAME_NODE];
+				nodeClasses = [CNAME_NODE],
+				superConstructor = this.constructor;
+				
+			while (!templ) {
+				templ = superConstructor.TEMPLATE;
+				superConstructor = superConstructor.superclass.constructor;
+				
+			}
 
 			node._rendered = true;
 			if (childCount) {
@@ -304,6 +297,43 @@ FWNode = Y.Base.create(
 		toggle: function() {
 			this.set('expanded', !this.get('expanded'));
 			return this;
+		},
+		/**
+		* Gets the stored value for the attribute, from either the
+		* internal state object, or the state proxy if it exits
+		*
+		* @method _getStateVal
+		* @private
+		* @param {String} name The name of the attribute
+		* @return {Any} The stored value of the attribute
+		*/
+		_getStateVal : function(name) {
+			var node = this._node;
+			if (this._state.get(name, BYPASS_PROXY) || !node) {
+				return this._state.get(name, VALUE);
+			}
+			if (node.hasOwnProperty(name)) {
+				return node[name];
+			}
+			return this._state.get(name, VALUE);
+		},
+
+		/**
+		* Sets the stored value for the attribute, in either the
+		* internal state object, or the state proxy if it exits
+		*
+		* @method _setStateVal
+		* @private
+		* @param {String} name The name of the attribute
+		* @param {Any} value The value of the attribute
+		*/
+		_setStateVal : function(name, value) {
+			var node = this._node;
+			if (this._state.get(name, BYPASS_PROXY) || this._state.get(name, 'initializing') || !node) {
+				this._state.add(name, VALUE, value);
+			} else {
+				node[name] = value;
+			}
 		}
 	},
 	{

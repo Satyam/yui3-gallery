@@ -17,6 +17,8 @@ var Lang = Y.Lang,
 	CNAME_FIRSTCHILD = cName('first-child'),
 	CNAME_LASTCHILD = cName('last-child'),
 	CNAME_LOADING = cName('loading'),
+	BYPASS_PROXY = "_bypassProxy",
+	VALUE = 'value',
 	YArray = Y.Array,
 	FWMgr,
 	FWNode;
@@ -248,7 +250,8 @@ FWMgr.prototype = {
 				// I need to do this otherwise Attribute will initialize 
 				// the real node with default values when activating a lazyAdd attribute.
 				newNode._slideTo({});
-				newNode.getAttrs();
+				Y.Array.each(Y.Object.keys(newNode._state.data), newNode._addLazyAttr, newNode);
+				// newNode.getAttrs();
 				// That's it (see above)
 				newNode._root =  this;
 				newNode._slideTo(node);
@@ -259,11 +262,10 @@ FWMgr.prototype = {
 	},
 	/**
 	 * Returns an instance of Flyweight node positioned over the root
-	 * @method _getRootNode
+	 * @method getRoot
 	 * @return {Y.FlyweightTreeNode} 
-	 * @protected
 	 */
-	_getRootNode: function () {
+	getRoot: function () {
 		return this._poolFetch(this._tree);
 	},
 	/**
@@ -275,7 +277,7 @@ FWMgr.prototype = {
 	 */
 	_getHTML: function () {
 		var s = '',
-			root = this._getRootNode();
+			root = this.getRoot();
 		root.forEachChild( function (fwNode, index, array) {
 			s += fwNode._getHTML(index, array.length, 0);
 		});
@@ -400,26 +402,19 @@ FWNode = Y.Base.create(
 		_getHTML: function(index, nSiblings, depth) {
 			// assumes that if you asked for the HTML it is because you are rendering it
 			var self = this,
-				// this is a patch until this:  http://yuilibrary.com/projects/yui3/ticket/2532712  gets fixed.
-				getAttrs = function() {
-					var o = {},
-					i, l, attr,
-
-					attrs = Y.Object.keys(self._state.data);
-
-					for (i = 0, l = attrs.length; i < l; i+=1) {
-						attr = attrs[i];
-						o[attr] = self.get(attr);
-					}
-
-					return o;
-				},
 				node = this._node,
-				attrs = getAttrs(),
+				attrs = this.getAttrs(),
 				s = '', 
-				templ = node.template || this.constructor.TEMPLATE,
+				templ = node.template,
 				childCount = node.children && node.children.length,
-				nodeClasses = [CNAME_NODE];
+				nodeClasses = [CNAME_NODE],
+				superConstructor = this.constructor;
+				
+			while (!templ) {
+				templ = superConstructor.TEMPLATE;
+				superConstructor = superConstructor.superclass.constructor;
+				
+			}
 
 			node._rendered = true;
 			if (childCount) {
@@ -652,6 +647,43 @@ FWNode = Y.Base.create(
 		toggle: function() {
 			this.set('expanded', !this.get('expanded'));
 			return this;
+		},
+		/**
+		* Gets the stored value for the attribute, from either the
+		* internal state object, or the state proxy if it exits
+		*
+		* @method _getStateVal
+		* @private
+		* @param {String} name The name of the attribute
+		* @return {Any} The stored value of the attribute
+		*/
+		_getStateVal : function(name) {
+			var node = this._node;
+			if (this._state.get(name, BYPASS_PROXY) || !node) {
+				return this._state.get(name, VALUE);
+			}
+			if (node.hasOwnProperty(name)) {
+				return node[name];
+			}
+			return this._state.get(name, VALUE);
+		},
+
+		/**
+		* Sets the stored value for the attribute, in either the
+		* internal state object, or the state proxy if it exits
+		*
+		* @method _setStateVal
+		* @private
+		* @param {String} name The name of the attribute
+		* @param {Any} value The value of the attribute
+		*/
+		_setStateVal : function(name, value) {
+			var node = this._node;
+			if (this._state.get(name, BYPASS_PROXY) || this._state.get(name, 'initializing') || !node) {
+				this._state.add(name, VALUE, value);
+			} else {
+				node[name] = value;
+			}
 		}
 	},
 	{

@@ -10,6 +10,7 @@ var Lang = Y.Lang,
 		toggle: cName('toggle'),
 		icon: cName('icon'),
 		selection: cName('selection'),
-		content: cName('content')
+		content: cName('content'),
+		sel_prefix: cName('selected-state')
 	},
 	CBX = 'contentBox';
