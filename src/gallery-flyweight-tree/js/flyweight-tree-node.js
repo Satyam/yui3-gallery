@@ -192,6 +192,7 @@ FWNode = Y.Base.create(
 		 * Callback for the dynamicLoader method.
 		 * @method _dynamicLoadReturn
 		 * @param response {Array} array of child nodes 
+		 * @private
 		 */
 		_dynamicLoadReturn: function (response) {
 			var self = this,

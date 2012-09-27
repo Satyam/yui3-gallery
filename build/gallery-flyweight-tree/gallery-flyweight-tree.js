@@ -436,7 +436,8 @@ FWNode = Y.Base.create(
 			}
 			if (index === 0) {
 				nodeClasses.push(CNAME_FIRSTCHILD);
-			} else if (index === nSiblings - 1) {
+			} 
+			if (index === nSiblings - 1) {
 				nodeClasses.push(CNAME_LASTCHILD);
 			}
 			attrs.children = s;
@@ -541,6 +542,7 @@ FWNode = Y.Base.create(
 		 * Callback for the dynamicLoader method.
 		 * @method _dynamicLoadReturn
 		 * @param response {Array} array of child nodes 
+		 * @private
 		 */
 		_dynamicLoadReturn: function (response) {
 			var self = this,
