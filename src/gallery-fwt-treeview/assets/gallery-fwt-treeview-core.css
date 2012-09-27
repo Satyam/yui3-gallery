@@ -6,10 +6,10 @@
 	clear: both;
 	overflow: hidden;
 }
-.yui3-fw-treeview li .yui3-fw-treeview-toggle {
-	float: left;
-}
-.yui3-fw-treeview li .yui3-fw-treeview-content {
+.yui3-fw-treeview li .yui3-fw-treeview-content,
+.yui3-fw-treeview li .yui3-fw-treeview-toggle,
+.yui3-fw-treeview li .yui3-fw-treeview-selection,
+.yui3-fw-treeview li .yui3-fw-treeview-icon {
 	float: left;
 }
 .yui3-fw-treeview li.yui3-flyweight-tree-node-collapsed ul.yui3-flyweight-tree-node-children {

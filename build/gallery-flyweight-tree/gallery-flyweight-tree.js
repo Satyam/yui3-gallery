@@ -649,6 +649,14 @@ FWNode = Y.Base.create(
 			return this;
 		},
 		/**
+		 * Returns true if this node is the root node
+		 * @method isRoot
+		 * @return {Boolean} true if root node
+		 */
+		isRoot: function() {
+			return this._root._tree === this._node;
+		},
+		/**
 		* Gets the stored value for the attribute, from either the
 		* internal state object, or the state proxy if it exits
 		*

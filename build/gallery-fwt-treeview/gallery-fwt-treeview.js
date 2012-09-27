@@ -147,12 +147,35 @@ Y.FWTreeView = Y.Base.create(
 			}
 		},
 		toggleSelection: function() {
-			this.set('selected', 2 - this.get('selected'));
+			this.set('selected', (this.get('selected')?0:2));
 		},
 		_afterSelectedChange: function (ev) {
-			var el = Y.one('#' + this.get('id'));
-			el.replaceClass('yui3-fw-treeview-selected-state-' + ev.prevVal,'yui3-fw-treeview-selected-state-' + ev.newVal);
+			var newVal = ev.newVal;
+				
+			if (!this.isRoot()) {
+				Y.one('#' + this.get('id')).replaceClass('yui3-fw-treeview-selected-state-' + ev.prevVal,'yui3-fw-treeview-selected-state-' + newVal);
+				if (this.get('propagateUp') && ev.src !== 'propagatingDown') {
+					this.getParent()._childSelectedChange().release();
+				}
+			}
+			if (this.get('propagateDown') && ev.src !== 'propagatingUp') {
+				this.forEachChild(function(node) {
+					node.set('selected' , newVal, 'propagatingDown');
+				});
+			}
+		},
+		_childSelectedChange: function () {
+			var count = 0, selCount = 0;
+			this.forEachChild(function (node) {
+				console.log('nodes', node.get('label'), node.get('selected'));
+				count +=2;
+				selCount += node.get('selected');
+			});
+			console.log('counts',this.get('label'), count, selCount);
+			this.set('selected', (selCount === 0?0:(selCount === count?2:1)), {src:'propagatingUp'});
+			return this;
 		}
+		
 	},
 	{
 		/**

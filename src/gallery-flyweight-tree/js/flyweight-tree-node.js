@@ -86,7 +86,8 @@ FWNode = Y.Base.create(
 			}
 			if (index === 0) {
 				nodeClasses.push(CNAME_FIRSTCHILD);
-			} else if (index === nSiblings - 1) {
+			} 
+			if (index === nSiblings - 1) {
 				nodeClasses.push(CNAME_LASTCHILD);
 			}
 			attrs.children = s;
@@ -297,6 +298,14 @@ FWNode = Y.Base.create(
 		toggle: function() {
 			this.set('expanded', !this.get('expanded'));
 			return this;
+		},
+		/**
+		 * Returns true if this node is the root node
+		 * @method isRoot
+		 * @return {Boolean} true if root node
+		 */
+		isRoot: function() {
+			return this._root._tree === this._node;
 		},
 		/**
 		* Gets the stored value for the attribute, from either the
