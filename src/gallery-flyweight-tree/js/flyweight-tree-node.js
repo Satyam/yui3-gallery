@@ -70,7 +70,7 @@ FWNode = Y.Base.create(
 			if (childCount) {
 				if (attrs.expanded) {
 					node._childrenRendered = true;
-					this.forEachChild( function (fwNode, index, array) {
+					this.forSomeChildren( function (fwNode, index, array) {
 						s += fwNode._getHTML(index, array.length, depth+1);
 					});
 					nodeClasses.push(CNAME_EXPANDED);
@@ -109,7 +109,7 @@ FWNode = Y.Base.create(
 		},
 		/**
 		 * Executes the given function on each of the child nodes of this node.
-		 * @method forEachChild
+		 * @method forSomeChildren
 		 * @param fn {Function} Function to be executed on each node
 		 *		@param fn.child {Y.FlyweightTreeNode} Instance of a suitable subclass of FlyweightTreeNode, 
 		 *		positioned on top of the child node
@@ -117,13 +117,13 @@ FWNode = Y.Base.create(
 		 *		@param fn.array {Array} array containing itself and its siblings
 		 * @param scope {object} The falue of this for the function.  Defaults to the parent.
 		**/
-		forEachChild: function(fn, scope) {
+		forSomeChildren: function(fn, scope) {
 			var root = this._root,
 				children = this._node.children,
 				child, ret;
 			scope = scope || this;
 			if (children && children.length) {
-				YArray.each(children, function (node, index, array) {
+				YArray.some(children, function (node, index, array) {
 					child = root._poolFetch(node);
 					ret = fn.call(scope, child, index, array);
 					root._poolReturn(child);
@@ -221,7 +221,7 @@ FWNode = Y.Base.create(
 				node = this._node,
 				depth = this.get('depth');
 			node._childrenRendered = true;
-			this.forEachChild(function (fwNode, index, array) {
+			this.forSomeChildren(function (fwNode, index, array) {
 				s += fwNode._getHTML(index, array.length, depth + 1);
 			});
 			Y.one('#' + node.id + ' .' + CNAME_CHILDREN).setContent(s);

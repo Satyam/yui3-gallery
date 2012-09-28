@@ -253,7 +253,7 @@ FWMgr.prototype = {
 	_getHTML: function () {
 		var s = '',
 			root = this.getRoot();
-		root.forEachChild( function (fwNode, index, array) {
+		root.forSomeChildren( function (fwNode, index, array) {
 			s += fwNode._getHTML(index, array.length, 0);
 		});
 		this._poolReturn(root);
@@ -319,6 +319,31 @@ FWMgr.prototype = {
 			});
 		};
 		return loop(this._tree, 0);
+	},
+	/**
+	 * Executes the given function over all the nodes in the tree or until the function returns true.
+	 * If dynamic loading is enabled, it will not run over nodes not yet loaded.
+	 * @method forSomeNodes
+	 * @param fn {function} function to execute on each node.  It will receive:
+	 *	@param fn.node {Y.FlyweightTreeNode} node being visited.
+	 *	@param fn.depth {Integer} depth from the root. The root node is level zero and it is not traversed.
+	 *	@param fn,index {Integer} position of this node within its branch
+	 *	@param fn.array {Array} array containing itself and its siblings
+	 * @param scope {Object} Scope to run the function in.  Defaults to the FlyweightTreeManager instance.
+	 * @return {Boolean} true if any function calls returned true (the traversal was interrupted)
+	 */
+	forSomeNodes: function (fn, scope) {
+		scope = scope || this;
+		
+		var forOneLevel = function (node, depth) {
+			node.forSomeChildren(function (node, index, array) {
+				if (fn.call(scope,node, depth, index, array) === true) {
+					return true;
+				}
+				return forOneLevel(node, depth+1);
+			});
+		};
+		return forOneLevel(this.getRoot(), 1);
 	}
 };
 

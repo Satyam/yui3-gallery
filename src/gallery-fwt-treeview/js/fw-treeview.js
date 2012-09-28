@@ -80,6 +80,12 @@ Y.FWTreeView = Y.Base.create(
 			defaultType: {
 				value: 'FWTreeNode'
 			},
+			/**
+			 * Enables toggling by clicking on the label item instead of just the toggle icon.
+			 * @attribute toggleOnLabelClick
+			 * @type Boolean
+			 * @value false
+			 */
 			toggleOnLabelClick: {
 				value:false,
 				validator:Lang.isBoolean

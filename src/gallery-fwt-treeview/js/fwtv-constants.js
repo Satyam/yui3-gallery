@@ -13,4 +13,7 @@ var Lang = Y.Lang,
 		content: cName('content'),
 		sel_prefix: cName('selected-state')
 	},
-	CBX = 'contentBox';
+	CBX = 'contentBox',
+	NOT_SELECTED = 0,
+	PARTIALLY_SELECTED = 1,
+	FULLY_SELECTED = 2;

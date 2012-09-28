@@ -15,7 +15,10 @@ var Lang = Y.Lang,
 		content: cName('content'),
 		sel_prefix: cName('selected-state')
 	},
-	CBX = 'contentBox';
+	CBX = 'contentBox',
+	NOT_SELECTED = 0,
+	PARTIALLY_SELECTED = 1,
+	FULLY_SELECTED = 2;
 /** Creates a Treeview using the FlyweightTreeManager extension to handle its nodes.
  * It creates the tree based on an object passed as the `tree` attribute in the constructor.
  * @example
@@ -98,6 +101,12 @@ Y.FWTreeView = Y.Base.create(
 			defaultType: {
 				value: 'FWTreeNode'
 			},
+			/**
+			 * Enables toggling by clicking on the label item instead of just the toggle icon.
+			 * @attribute toggleOnLabelClick
+			 * @type Boolean
+			 * @value false
+			 */
 			toggleOnLabelClick: {
 				value:false,
 				validator:Lang.isBoolean
@@ -140,10 +149,12 @@ Y.FWTreeView = Y.Base.create(
 			var target = ev.domEvent.target;
 			if (target.hasClass(CNAMES.toggle)) {
 				this.toggle();
-			} else if ((target.hasClass(CNAMES.content) || target.hasClass(CNAMES.icon)) && this.get('root').get('toggleOnLabelClick')) {
-				this.toggle();
 			} else if (target.hasClass(CNAMES.selection)) {
 				this.toggleSelection();
+			} else if (target.hasClass(CNAMES.content) || target.hasClass(CNAMES.icon)) {
+				if (this.get('root').get('toggleOnLabelClick')) {
+					this.toggle();
+				}
 			}
 		},
 		/**
@@ -151,7 +162,7 @@ Y.FWTreeView = Y.Base.create(
 		 * @method toggleSelection
 		 */
 		toggleSelection: function() {
-			this.set('selected', (this.get('selected')?0:2));
+			this.set('selected', (this.get('selected')?NOT_SELECTED:FULLY_SELECTED));
 		},
 		/**
 		 * Changes the UI to reflect the selected state and propagates the selection up and/or down.
@@ -161,19 +172,35 @@ Y.FWTreeView = Y.Base.create(
 		 * @private
 		 */
 		_afterSelectedChange: function (ev) {
-			var newVal = ev.newVal;
+			var selected = ev.newVal;
 				
 			if (!this.isRoot()) {
-				Y.one('#' + this.get('id')).replaceClass('yui3-fw-treeview-selected-state-' + ev.prevVal,'yui3-fw-treeview-selected-state-' + newVal);
+				Y.one('#' + this.get('id')).replaceClass('yui3-fw-treeview-selected-state-' + ev.prevVal,'yui3-fw-treeview-selected-state-' + selected);
 				if (this.get('propagateUp') && ev.src !== 'propagatingDown') {
 					this.getParent()._childSelectedChange().release();
 				}
 			}
 			if (this.get('propagateDown') && ev.src !== 'propagatingUp') {
-				this.forEachChild(function(node) {
-					node.set('selected' , newVal, 'propagatingDown');
+				this.forSomeChildren(function(node) {
+					node.set('selected' , selected, 'propagatingDown');
 				});
 			}
+		},
+		/**
+		 * Overrides the original in Y.FlyweightTreeNode so as to propagate the selected state
+		 * on dynamically loaded nodes.
+		 * @method _dynamicLoadReturn
+		 * @private
+		 */
+		_dynamicLoadReturn: function () {
+			 Y.FWTreeNode.superclass._dynamicLoadReturn.apply(this, arguments);
+			 if (this.get('propagateDown')) {
+				var selected = this.get('selected');
+				this.forSomeChildren(function(node) {
+					node.set('selected' , selected, 'propagatingDown');
+				});
+			}
+			 
 		},
 		/**
 		 * When propagating selection up, it is called by a child when changing its selected state
@@ -183,11 +210,11 @@ Y.FWTreeView = Y.Base.create(
 		 */
 		_childSelectedChange: function () {
 			var count = 0, selCount = 0;
-			this.forEachChild(function (node) {
+			this.forSomeChildren(function (node) {
 				count +=2;
 				selCount += node.get('selected');
 			});
-			this.set('selected', (selCount === 0?0:(selCount === count?2:1)), {src:'propagatingUp'});
+			this.set('selected', (selCount === 0?NOT_SELECTED:(selCount === count?FULLY_SELECTED:PARTIALLY_SELECTED)), {src:'propagatingUp'});
 			return this;
 		}
 		
@@ -200,24 +227,54 @@ Y.FWTreeView = Y.Base.create(
 		 * @static
 		 */
 		TEMPLATE: Lang.sub('<li id="{id}" class="{cname_node} {sel_prefix}-{selected}"><div class="{toggle}"></div><div class="{icon}"></div><div class="{selection}"></div><div class="{content}">{label}</div><ul class="{cname_children}">{children}</ul></li>', CNAMES),
+		/**
+		 * Constant to use with the `selected` attribute to indicate the node is not selected.
+		 * @property NOT_SELECTED
+		 * @type integer
+		 * @value 0
+		 * @static
+		 * @final
+		 */
+		NOT_SELECTED:NOT_SELECTED,
+		/**
+		 * Constant to use with the `selected` attribute to indicate some 
+		 * but not all of the children of this node are selected.
+		 * This state should only be acquired by upward propagation from descendants.
+		 * @property PARTIALLY_SELECTED
+		 * @type integer
+		 * @value 1
+		 * @static
+		 * @final
+		 */
+		PARTIALLY_SELECTED:PARTIALLY_SELECTED,
+		/**
+		 * Constant to use with the `selected` attribute to indicate the node is selected.
+		 * @property FULLY_SELECTED
+		 * @type integer
+		 * @value 2
+		 * @static
+		 * @final
+		 */
+		FULLY_SELECTED:FULLY_SELECTED,
 		ATTRS: {
 			/**
 			 * Selected/highlighted state of the node. 
 			 * It can be
 			 * 
-			 * - 0 not selected
-			 * - 1 partially selected: some children are selected, some not or partially selected.
-			 * - 2 fully selected.
+			 * - Y.FWTreeNode.NOT_SELECTED (0) not selected
+			 * - Y.FWTreeNode.PARTIALLY_SELECTED (1) partially selected: some children are selected, some not or partially selected.
+			 * - Y.FWTreeNode.FULLY_SELECTED (2) fully selected.
 			 * 
 			 * The partially selected state can only be the result of selection propagating up from a child node.
+			 * The attribute might return PARTIALLY_SELECTED but the developer should never set that value.
 			 * @attribute selected
 			 * @type Integer
-			 * @value 0
+			 * @value NOT_SELECTED
 			 */
 			selected: {
-				value:0,
+				value:NOT_SELECTED,
 				validator:function (value) {
-					return value === 0 || value === 1 || value === 2;
+					return value === NOT_SELECTED || value === FULLY_SELECTED || value === PARTIALLY_SELECTED;
 				}
 			},
 			/**
