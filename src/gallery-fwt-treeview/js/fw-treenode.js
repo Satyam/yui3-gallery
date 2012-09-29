@@ -1,14 +1,18 @@
 /** This class must not be generated directly.  
- *  Instances of it will be provided by Y.FWTreeView as required.
+ *  Instances of it will be provided by FWTreeView as required.
  *  
  *  Subclasses might be defined based on it.  
  *  Usually, they will add further attributes and redefine the TEMPLATE to 
  *  show those extra attributes.
  *  
  *  @module gallery-fwt-treeview
+ */
+/**
  *    
- *  @class Y.FWTreeNode
- *  @extends Y.FlyweightTreeNode
+ *  @class FWTreeNode
+ *  @extends FlyweightTreeNode
+ */
+/**
  *  @constructor
  */
  Y.FWTreeNode = Y.Base.create(
@@ -68,7 +72,7 @@
 			}
 		},
 		/**
-		 * Overrides the original in Y.FlyweightTreeNode so as to propagate the selected state
+		 * Overrides the original in FlyweightTreeNode so as to propagate the selected state
 		 * on dynamically loaded nodes.
 		 * @method _dynamicLoadReturn
 		 * @private

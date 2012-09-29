@@ -41,17 +41,22 @@ var Lang = Y.Lang,
 
 	]});
 	tv.render('#container');
+
  * @module gallery-fwt-treeview
- * @class Y.FWTreeView
- * @extends Y.Widget
- * @uses Y.FlyweightTreeManager
+ */
+/**
+ * @class FWTreeView
+ * @extends Widget
+ * @uses FlyweightTreeManager
+ */
+/**
  * @constructor
  * @param config {Object} Configuration attributes, amongst them:
  * @param config.tree {Array} Array of objects defining the first level of nodes.
  * @param config.tree.label {String} Text of HTML markup to be shown in the node
  * @param [config.tree.expanded=true] {Boolean} Whether the children of this node should be visible.
  * @param [config.tree.children] {Array} Further definitions for the children of this node
- * @param [config.tree.type=Y.FWTreeNode] {Y.FWTreeNode | String} Class used to create instances for this node.
+ * @param [config.tree.type=FWTreeNode] {FWTreeNode | String} Class used to create instances for this node.
  * It can be a reference to an object or a name that can be resolved as `Y[name]`.
  * @param [config.tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing this node.
  * @param [config.tree.template] {String} Template for this particular node. 
@@ -118,16 +123,20 @@ Y.FWTreeView = Y.Base.create(
 	}
 );
 /** This class must not be generated directly.  
- *  Instances of it will be provided by Y.FWTreeView as required.
+ *  Instances of it will be provided by FWTreeView as required.
  *  
  *  Subclasses might be defined based on it.  
  *  Usually, they will add further attributes and redefine the TEMPLATE to 
  *  show those extra attributes.
  *  
  *  @module gallery-fwt-treeview
+ */
+/**
  *    
- *  @class Y.FWTreeNode
- *  @extends Y.FlyweightTreeNode
+ *  @class FWTreeNode
+ *  @extends FlyweightTreeNode
+ */
+/**
  *  @constructor
  */
  Y.FWTreeNode = Y.Base.create(
@@ -187,7 +196,7 @@ Y.FWTreeView = Y.Base.create(
 			}
 		},
 		/**
-		 * Overrides the original in Y.FlyweightTreeNode so as to propagate the selected state
+		 * Overrides the original in FlyweightTreeNode so as to propagate the selected state
 		 * on dynamically loaded nodes.
 		 * @method _dynamicLoadReturn
 		 * @private

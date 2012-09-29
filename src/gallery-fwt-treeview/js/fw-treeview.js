@@ -20,17 +20,22 @@
 
 	]});
 	tv.render('#container');
+
  * @module gallery-fwt-treeview
- * @class Y.FWTreeView
- * @extends Y.Widget
- * @uses Y.FlyweightTreeManager
+ */
+/**
+ * @class FWTreeView
+ * @extends Widget
+ * @uses FlyweightTreeManager
+ */
+/**
  * @constructor
  * @param config {Object} Configuration attributes, amongst them:
  * @param config.tree {Array} Array of objects defining the first level of nodes.
  * @param config.tree.label {String} Text of HTML markup to be shown in the node
  * @param [config.tree.expanded=true] {Boolean} Whether the children of this node should be visible.
  * @param [config.tree.children] {Array} Further definitions for the children of this node
- * @param [config.tree.type=Y.FWTreeNode] {Y.FWTreeNode | String} Class used to create instances for this node.
+ * @param [config.tree.type=FWTreeNode] {FWTreeNode | String} Class used to create instances for this node.
  * It can be a reference to an object or a name that can be resolved as `Y[name]`.
  * @param [config.tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing this node.
  * @param [config.tree.template] {String} Template for this particular node. 

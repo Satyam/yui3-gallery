@@ -10,8 +10,8 @@
 /**
 * An implementation of the flyweight pattern.  This class should not be instantiated directly.
 * Instances of this class can be requested from the flyweight manager class
-* @class Y.FlyweightTreeNode
-* @extends Y.Base
+* @class FlyweightTreeNode
+* @extends Base
 * @constructor  Do not instantiate directly.
 */
 FWNode = Y.Base.create(
@@ -30,7 +30,7 @@ FWNode = Y.Base.create(
 		 * Reference to the FlyweightTreeManager instance this node belongs to.
 		 * It is set by the root and should be considered read-only.
 		 * @property _root
-		 * @type Y.FlyweightTreeManager
+		 * @type FlyweightTreeManager
 		 * @private
 		 */
 		_root: null,
@@ -111,7 +111,7 @@ FWNode = Y.Base.create(
 		 * Executes the given function on each of the child nodes of this node.
 		 * @method forSomeChildren
 		 * @param fn {Function} Function to be executed on each node
-		 *		@param fn.child {Y.FlyweightTreeNode} Instance of a suitable subclass of FlyweightTreeNode, 
+		 *		@param fn.child {FlyweightTreeNode} Instance of a suitable subclass of FlyweightTreeNode, 
 		 *		positioned on top of the child node
 		 *		@param fn.index {Integer} Index of this child within the array of children
 		 *		@param fn.array {Array} array containing itself and its siblings
@@ -252,7 +252,7 @@ FWNode = Y.Base.create(
 		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
 		 * Remember to release the copy to the pool when done.
 		 * @method getParent
-		 * @return Y.FlyweightTreeNode
+		 * @return FlyweightTreeNode
 		 */
 		getParent: function() {
 			var node = this._node._parent;
@@ -263,7 +263,7 @@ FWNode = Y.Base.create(
 		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
 		 * Remember to release the copy to the pool when done.
 		 * @method getNextSibling
-		 * @return Y.FlyweightTreeNode
+		 * @return FlyweightTreeNode
 		 */
 		getNextSibling: function() {
 			var parent = this._node._parent,
@@ -279,7 +279,7 @@ FWNode = Y.Base.create(
 		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
 		 * Remember to release the copy to the pool when done.
 		 * @method getPreviousSibling
-		 * @return Y.FlyweightTreeNode
+		 * @return FlyweightTreeNode
 		 */
 		getPreviousSibling: function() {
 			var parent = this._node._parent,
@@ -429,7 +429,7 @@ FWNode = Y.Base.create(
 			/**
 			 * Reference to the FlyweightTreeManager this node belongs to
 			 * @attribute root
-			 * @type {Y.FlyweightTreeManager}
+			 * @type {FlyweightTreeManager}
 			 * @readOnly
 			 * 
 			 */
@@ -469,7 +469,7 @@ FWNode = Y.Base.create(
 			 * If none was supplied, it will generate one
 			 * @attribute id
 			 * @type {Identifier}
-			 * @default Y.guid()
+			 * @default guid()
 			 * @readOnly
 			 */
 			id: {

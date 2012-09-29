@@ -30,7 +30,7 @@ var Lang = Y.Lang,
 
 /**
  * Extension to handle its child nodes by using the flyweight pattern.
- * @class Y.FlyweightTreeManager
+ * @class FlyweightTreeManager
  * @constructor
  */
 FWMgr = function () {
@@ -55,7 +55,7 @@ FWMgr.ATTRS = {
 	 * Function will run in the scope of the FlyweightTreeManager instance and will
 	 * receive:
 	 * 
-	 * * node {Y.FlyweightTreeNode} reference to the parent of the children to be loaded.
+	 * * node {FlyweightTreeNode} reference to the parent of the children to be loaded.
 	 * * callback {Function} function to call with the configuration info for the children.
 	 * 
 	 * The function shall fetch the nodes and create a configuration object 
@@ -116,7 +116,7 @@ FWMgr.prototype = {
 	 * @param tree.label {String} Text or HTML markup to be shown in the node
 	 * @param [tree.expanded=true] {Boolean} Whether the children of this node should be visible.
 	 * @param [tree.children] {Array} Further definitions for the children of this node
-	 * @param [tree.type=Y.FWTreeNode] {Y.FWTreeNode | String} Class used to create instances for this node.  
+	 * @param [tree.type=FWTreeNode] {FWTreeNode | String} Class used to create instances for this node.  
 	 * It can be a reference to an object or a name that can be resolved as `Y[name]`.
 	 * @param [tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing this node.
 	 * @param [tree.template] {String} Template for this particular node. 
@@ -185,10 +185,10 @@ FWMgr.prototype = {
 	 * Pulls from the pool an instance of the type declared in the given node
 	 * and slides it over that node.
 	 * If there are no instances of the given type in the pool, a new one will be created via {{#crossLink "_createNode"}}{{/crossLink}}
-	 * If an instance is held (see: {{#crossLink "Y.FlyweightTreeNode/hold"}}{{/crossLink}}), it will be returned instead.
+	 * If an instance is held (see: {{#crossLink "FlyweightTreeNode/hold"}}{{/crossLink}}), it will be returned instead.
 	 * @method _poolFetch
 	 * @param node {Object} reference to a node within the configuration tree
-	 * @return {Y.FlyweightTreeNode} Usually a subclass of FlyweightTreeNode positioned over the given node
+	 * @return {FlyweightTreeNode} Usually a subclass of FlyweightTreeNode positioned over the given node
 	 * @protected
 	 */
 	_poolFetch: function(node) {
@@ -212,9 +212,9 @@ FWMgr.prototype = {
 	},
 	/**
 	 * Returns the FlyweightTreeNode instance to the pool.
-	 * Instances held (see: {{#crossLink "Y.FlyweightTreeNode/hold"}}{{/crossLink}}) are never returned.
+	 * Instances held (see: {{#crossLink "FlyweightTreeNode/hold"}}{{/crossLink}}) are never returned.
 	 * @method _poolReturn
-	 * @param fwNode {Y.FlyweightTreeNode} Instance to return.
+	 * @param fwNode {FlyweightTreeNode} Instance to return.
 	 * @protected
 	 */
 	_poolReturn: function (fwNode) {
@@ -235,7 +235,7 @@ FWMgr.prototype = {
 	 * and slides it on top of the node provided.
 	 * @method _createNode
 	 * @param node {Object} reference to a node within the configuration tree
-	 * @return {Y.FlyweightTreeNode} Instance of the corresponding subclass of FlyweightTreeNode
+	 * @return {FlyweightTreeNode} Instance of the corresponding subclass of FlyweightTreeNode
 	 * @protected
 	 */
 	_createNode: function (node) {
@@ -263,7 +263,7 @@ FWMgr.prototype = {
 	/**
 	 * Returns an instance of Flyweight node positioned over the root
 	 * @method getRoot
-	 * @return {Y.FlyweightTreeNode} 
+	 * @return {FlyweightTreeNode} 
 	 */
 	getRoot: function () {
 		return this._poolFetch(this._tree);
@@ -287,7 +287,7 @@ FWMgr.prototype = {
 	/**
 	 * Locates a node in the tree by the element that represents it.
 	 * @method _findNodeByElement
-	 * @param el {Y.Node} Any element belonging to the tree
+	 * @param el {Node} Any element belonging to the tree
 	 * @return {Object} Node that produced the markup for that element or null if not found
 	 * @protected
 	 */
@@ -313,7 +313,7 @@ FWMgr.prototype = {
 	 * Returns a FlyweightTreeNode instance from the pool, positioned over the node whose markup generated some event.
 	 * @method _poolFetchFromEvent
 	 * @param ev {EventFacade}
-	 * @return {Y.FlyweightTreeNode} The FlyweightTreeNode instance or null if not found.
+	 * @return {FlyweightTreeNode} The FlyweightTreeNode instance or null if not found.
 	 * @private
 	 */
 	_poolFetchFromEvent: function (ev) {
@@ -350,9 +350,9 @@ FWMgr.prototype = {
 	 * If dynamic loading is enabled, it will not run over nodes not yet loaded.
 	 * @method forSomeNodes
 	 * @param fn {function} function to execute on each node.  It will receive:
-	 *	@param fn.node {Y.FlyweightTreeNode} node being visited.
+	 *	@param fn.node {FlyweightTreeNode} node being visited.
 	 *	@param fn.depth {Integer} depth from the root. The root node is level zero and it is not traversed.
-	 *	@param fn,index {Integer} position of this node within its branch
+	 *	@param fn.index {Integer} position of this node within its branch
 	 *	@param fn.array {Array} array containing itself and its siblings
 	 * @param scope {Object} Scope to run the function in.  Defaults to the FlyweightTreeManager instance.
 	 * @return {Boolean} true if any function calls returned true (the traversal was interrupted)
@@ -385,8 +385,8 @@ Y.FlyweightTreeManager = FWMgr;
 /**
 * An implementation of the flyweight pattern.  This class should not be instantiated directly.
 * Instances of this class can be requested from the flyweight manager class
-* @class Y.FlyweightTreeNode
-* @extends Y.Base
+* @class FlyweightTreeNode
+* @extends Base
 * @constructor  Do not instantiate directly.
 */
 FWNode = Y.Base.create(
@@ -405,7 +405,7 @@ FWNode = Y.Base.create(
 		 * Reference to the FlyweightTreeManager instance this node belongs to.
 		 * It is set by the root and should be considered read-only.
 		 * @property _root
-		 * @type Y.FlyweightTreeManager
+		 * @type FlyweightTreeManager
 		 * @private
 		 */
 		_root: null,
@@ -486,7 +486,7 @@ FWNode = Y.Base.create(
 		 * Executes the given function on each of the child nodes of this node.
 		 * @method forSomeChildren
 		 * @param fn {Function} Function to be executed on each node
-		 *		@param fn.child {Y.FlyweightTreeNode} Instance of a suitable subclass of FlyweightTreeNode, 
+		 *		@param fn.child {FlyweightTreeNode} Instance of a suitable subclass of FlyweightTreeNode, 
 		 *		positioned on top of the child node
 		 *		@param fn.index {Integer} Index of this child within the array of children
 		 *		@param fn.array {Array} array containing itself and its siblings
@@ -627,7 +627,7 @@ FWNode = Y.Base.create(
 		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
 		 * Remember to release the copy to the pool when done.
 		 * @method getParent
-		 * @return Y.FlyweightTreeNode
+		 * @return FlyweightTreeNode
 		 */
 		getParent: function() {
 			var node = this._node._parent;
@@ -638,7 +638,7 @@ FWNode = Y.Base.create(
 		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
 		 * Remember to release the copy to the pool when done.
 		 * @method getNextSibling
-		 * @return Y.FlyweightTreeNode
+		 * @return FlyweightTreeNode
 		 */
 		getNextSibling: function() {
 			var parent = this._node._parent,
@@ -654,7 +654,7 @@ FWNode = Y.Base.create(
 		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
 		 * Remember to release the copy to the pool when done.
 		 * @method getPreviousSibling
-		 * @return Y.FlyweightTreeNode
+		 * @return FlyweightTreeNode
 		 */
 		getPreviousSibling: function() {
 			var parent = this._node._parent,
@@ -804,7 +804,7 @@ FWNode = Y.Base.create(
 			/**
 			 * Reference to the FlyweightTreeManager this node belongs to
 			 * @attribute root
-			 * @type {Y.FlyweightTreeManager}
+			 * @type {FlyweightTreeManager}
 			 * @readOnly
 			 * 
 			 */
@@ -844,7 +844,7 @@ FWNode = Y.Base.create(
 			 * If none was supplied, it will generate one
 			 * @attribute id
 			 * @type {Identifier}
-			 * @default Y.guid()
+			 * @default guid()
 			 * @readOnly
 			 */
 			id: {
