@@ -3,23 +3,33 @@ YUI.add('gallery-flyweight-tree', function (Y, NAME) {
 'use strict';
 /*jslint white: true */
 var Lang = Y.Lang,
-	DOT = '.',
-	DEFAULT_POOL = '_default',
-	getCName = Y.ClassNameManager.getClassName,
+	YArray = Y.Array,
+
+    DOT = '.',
+	BYPASS_PROXY = "_bypassProxy",
+	VALUE = 'value',
+    EXPANDED = 'expanded',
+    DYNAMIC_LOADER = 'dynamicLoader',
+    TABINDEX = 'tabIndex',
+    FOCUSED = 'focused',
+
+    DEFAULT_POOL = '_default',
+
+    getCName = Y.ClassNameManager.getClassName,
+    FWNODE_NAME = 'flyweight-tree-node',
+	CNAME_NODE = getCName(FWNODE_NAME),
 	cName = function (name) {
-		return getCName('flyweight-tree-node', name);
+		return getCName(FWNODE_NAME, name);
 	},
-	CNAME_NODE = cName(''),
+    CNAME_CONTENT = cName('content'),
 	CNAME_CHILDREN = cName('children'),
 	CNAME_COLLAPSED = cName('collapsed'),
-	CNAME_EXPANDED = cName('expanded'),
+	CNAME_EXPANDED = cName(EXPANDED),
 	CNAME_NOCHILDREN = cName('no-children'),
 	CNAME_FIRSTCHILD = cName('first-child'),
 	CNAME_LASTCHILD = cName('last-child'),
 	CNAME_LOADING = cName('loading'),
-	BYPASS_PROXY = "_bypassProxy",
-	VALUE = 'value',
-	YArray = Y.Array,
+
 	FWMgr,
 	FWNode;
 
@@ -30,63 +40,100 @@ var Lang = Y.Lang,
 
 /**
  * Extension to handle its child nodes by using the flyweight pattern.
+ *
+ * The information for the tree is stored internally in a plain object without methods,
+ * events or attributes.
+ * This manager will position FlyweightTreeNode instances (or subclasses of it)
+ * over these iNodes from a small pool of them, in order to save memory.
+ *
+ * The nodes on this configuration tree are referred to in this documentation as `iNodes`
+ * for 'internal nodes', to tell them apart from the pooled FlyweightTreeNode instances
+ * that will be used to manipulate them.  The FlyweightTreeNode instances will usually
+ * be declared as `fwNodes` when confusion might arise.
+ * If a variable or argument is not explicitly named `iNode` or a related name it is
+ * FlyweightTreeNode instance.
+ *
+ * The developer should not be concerned about the iNodes,
+ * except in the initial configuration tree.
+ * If the developer finds anything that needs to be done through iNodes,
+ * it is a bug and should be reported (thanks).
+ * iNodes should be private.
+ *
  * @class FlyweightTreeManager
  * @constructor
  */
 FWMgr = function () {
 	this._pool = {};
 	this._initialValues = {};
+    Y.Do.after(this._doAfterRender, this, "render");
+    this.after('focus', this._afterFocus);
 };
 
 FWMgr.ATTRS = {
 	/**
-	 * Default object type of the child nodes if no explicit type is given in the configuration tree.
-	 * It can be specified as an object reference, these two are equivalent: `Y.FWTreeNode` or  `'FWTreeNode'`.  
-	 * 
+	 * Default object type of the nodes if no explicit type is given in the configuration tree.
+	 * It can be specified as an object reference, these two are equivalent: `Y.FWTreeNode` or  `'FWTreeNode'`.
+	 *
 	 * @attribute defaultType
 	 * @type {String | Object}
 	 * @default 'FlyweightTreeNode'
 	 */
 	defaultType: {
-		value: 'FlyweightTreeNode'			
+		value: 'FlyweightTreeNode'
 	},
 	/**
 	 * Function used to load the nodes dynamically.
 	 * Function will run in the scope of the FlyweightTreeManager instance and will
 	 * receive:
-	 * 
+	 *
 	 * * node {FlyweightTreeNode} reference to the parent of the children to be loaded.
 	 * * callback {Function} function to call with the configuration info for the children.
-	 * 
-	 * The function shall fetch the nodes and create a configuration object 
-	 * much like the one a whole tree might receive.  
+	 *
+	 * The function shall fetch the nodes and create a configuration object
+	 * much like the one a whole tree might receive.
 	 * It is not limited to just one level of nodes, it might contain children elements as well.
 	 * When the data is processed, it should call the callback with the configuration object.
 	 * The function is responsible of handling any errors.
 	 * If the the callback is called with no arguments, the parent node will be marked as having no children.
+     *
+     * This attribute should be set before the tree is rendered as childless nodes
+     * render differently when there is a dynamic loader than when there isn't.
+     * (childless nodes can be expanded when a dynamic loader is present and the UI should reflect that).
 	 * @attribute dynamicLoader
-	 * @type {Function}
+	 * @type {Function or null}
 	 * @default null
 	 */
 	dynamicLoader: {
-		validator: Lang.isFunction,
-		value: null
-	}
+		value: null,
+        setter: '_dynamicLoaderSetter'
+	},
+    /**
+     * Points to the node that currently has the focus.
+     * If read, please make sure to release the node instance to the pool when done.
+     * @attribute focusedNode
+     * @type FlyweightTreeNode
+     * @default First node in the tree
+     */
+    focusedNode: {
+        getter: '_focusedNodeGetter',
+        setter: '_focusedNodeSetter'
+        // There is no need for validator since the setter already takes care of validation.
+    }
 };
 
 
 FWMgr.prototype = {
 	/**
 	 * Clone of the configuration tree.
-	 * The FlyweightTreeNode instances will use the nodes in this tree as the storage for their state.
+	 * The FlyweightTreeNode instances will use the iNodes (internal nodes) in this tree as the storage for their state.
 	 * @property _tree
 	 * @type Object
 	 * @private
 	 */
 	_tree: null,
 	/**
-	 * Pool of FlyweightTreeNode instances to use and reuse by the manager.  
-	 * It contains a hash of arrays indexed by the node type. 
+	 * Pool of FlyweightTreeNode instances to use and reuse by the manager.
+	 * It contains a hash of arrays indexed by the iNode (internal node) type.
 	 * Each array contains a series of FlyweightTreeNode subclasses of the corresponding type.
 	 * @property _pool
 	 * @type {Object}
@@ -94,84 +141,131 @@ FWMgr.prototype = {
 	 */
 	_pool: null,
 	/**
-	 * List of dom events to be listened for at the outer contained and fired again
-	 * at the node once positioned over the source node.
+	 * List of dom events to be listened for at the outer container and fired again
+	 * at the FlyweightTreeNode level once positioned over the source iNode.
 	 * @property _domEvents
 	 * @type Array of strings
 	 * @protected
 	 * @default null
 	 */
 	_domEvents: null,
-	
+    /**
+     * Reference to the element that has the focus or should have the focus
+     * when this widget is active (ie, tabbed into).
+     * Mostly used for WAI-ARIA support.
+     * @property _focusedINode
+     * @type FlyweightTreeNode
+     * @private
+     * @default null
+     */
+    _focusedINode: null,
+
 	/**
 	 * Method to load the configuration tree.
-	 * This is not done in the constructor so as to allow the subclass 
+     * The nodes in this tree are copied into iNodes (internal nodes) for internal use.
+     *
+     * The constructor does not load the tree automatically so as to allow the subclass
+     * of this manager
 	 * to process the tree definition anyway it wants, adding defaults and such
 	 * and to name the tree whatever is suitable.
 	 * For TreeView, the configuration property is named `tree`, for a form, it is named `form`.
-	 * It also sets initial values for some default properties such as `parent` references and `id` for all nodes.
+	 * It also sets initial values for some default properties such as `parent` references and `id` for all iNodes.
 	 * @method _loadConfig
-	 * @param tree {Array} Configuration for the first level of nodes. 
+	 * @param tree {Array} Configuration for the first level of nodes.
 	 * Contains objects with the following attributes:
 	 * @param tree.label {String} Text or HTML markup to be shown in the node
 	 * @param [tree.expanded=true] {Boolean} Whether the children of this node should be visible.
 	 * @param [tree.children] {Array} Further definitions for the children of this node
-	 * @param [tree.type=FWTreeNode] {FWTreeNode | String} Class used to create instances for this node.  
+	 * @param [tree.type=FWTreeNode] {FWTreeNode | String} Class used to create instances for this iNode.
 	 * It can be a reference to an object or a name that can be resolved as `Y[name]`.
-	 * @param [tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing this node.
-	 * @param [tree.template] {String} Template for this particular node. 
+	 * @param [tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing the UI for this node.
+	 * @param [tree.template] {String} Template for this particular node.
 	 * @protected
 	 */
 	_loadConfig: function (tree) {
-		var self = this;
-		self._tree = {
+		this._tree = {
 			children: Y.clone(tree)
 		};
-		self._initNodes(this._tree);
+		this._initNodes(this._tree);
+
+	},
+	/** Initializes the iNodes configuration with default values and management info.
+	 * @method _initNodes
+	 * @param parentINode {Object} Parent of the iNodes to be set
+	 * @private
+	 */
+	_initNodes: function (parentINode) {
+		var self = this,
+            dynLoad = !!self.get(DYNAMIC_LOADER);
+		YArray.each(parentINode.children, function (iNode) {
+            if (!self._focusedINode) {
+                self._focusedINode = iNode;
+            }
+			iNode._parent = parentINode;
+			iNode.id = iNode.id || Y.guid();
+            if (dynLoad && !iNode.children) {
+                iNode.expanded = !!iNode.isLeaf;
+            } else {
+                iNode.expanded = (iNode.expanded === undefined) || !!iNode.expanded;
+            }
+			self._initNodes(iNode);
+		});
+	},
+    /**
+     * Initializes the events for its internal use and those requested in
+     * the {{#crossLink "_domEvents"}}{{/crossLink}} array.
+     * @method _doAfterRender
+     * @private
+     */
+    _doAfterRender: function() {
+		var self = this;
 		if (self._domEvents) {
-			Y.Array.each(self._domEvents, function (event) {
+			YArray.each(self._domEvents, function (event) {
 				self.after(event, self._afterDomEvent, self);
 			});
 		}
-	},
-	/** Initializes the node configuration with default values and management info.
-	 * @method _initNodes
-	 * @param parent {Object} Parent of the nodes to be set
-	 * @private
-	 */
-	_initNodes: function (parent) {
-		var self = this;
-		Y.Array.each(parent.children, function (child) {
-			child._parent = parent;
-			child.id = child.id || Y.guid();
-			self._initNodes(child);
-		});
-	},
+
+    },
+    /**
+     * Expands all the nodes of the tree.
+     *
+     * It will only expand existing nodes.  If there is a {{#crossLink "dynamicLoader:attribute"}}{{/crossLink}} configured
+     * it will not expand those since that might lead to extreme situations.
+     * @method expandAll
+     * @chainable
+     */
+    expandAll: function () {
+        this._forSomeINode(function(iNode) {
+            if (iNode.children && !iNode.expanded) {
+                this._poolReturn(this._poolFetch(iNode).set(EXPANDED, true));
+            }
+        });
+    },
 
 	/** Generic event listener for DOM events listed in the {{#crossLink "_domEvents"}}{{/crossLink}} array.
-	 *  It will locate the node that caused the event, slide a suitable instance on it and fire the
-	 *  same event on that node.
+	 *  It will locate the iNode represented by the UI elements that received the event,
+     *  slide a suitable instance on it and fire the same event on that node.
 	 *  @method _afterEvent
 	 *  @param ev {EventFacade} Event facade as produced by the event
 	 *  @private
 	 */
 	_afterDomEvent: function (ev) {
-		var node = this._poolFetchFromEvent(ev);
-		if (node) {
-			node.fire(ev.type.split(':')[1], {domEvent:ev.domEvent});
-			this._poolReturn(node);			
+		var fwNode = this._poolFetchFromEvent(ev);
+		if (fwNode) {
+			fwNode.fire(ev.type.split(':')[1], {domEvent:ev.domEvent});
+			this._poolReturn(fwNode);
 		}
 	},
 	/**
-	 * Returns a string identifying the type of the object to handle the node
+	 * Returns a string identifying the type of the object to handle the iNode
 	 * or null if type was not a FlyweightNode instance.
 	 * @method _getTypeString
-	 * @param node {Object} Node in the tree configuration
-	 * @return {String} type of node.
+	 * @param iNode {Object} Internal node in the tree configuration
+	 * @return {String} type of iNode.
 	 * @private
 	 */
-	_getTypeString: function (node) {
-		var type = node.type || DEFAULT_POOL;
+	_getTypeString: function (iNode) {
+		var type = iNode.type || DEFAULT_POOL;
 		if (!Lang.isString(type)) {
 			if (Lang.isObject(type)) {
 				type = type.NAME;
@@ -182,20 +276,20 @@ FWMgr.prototype = {
 		return type;
 	},
 	/**
-	 * Pulls from the pool an instance of the type declared in the given node
-	 * and slides it over that node.
+	 * Pulls from the pool an instance of the type declared in the given iNode
+	 * and slides it over that iNode.
 	 * If there are no instances of the given type in the pool, a new one will be created via {{#crossLink "_createNode"}}{{/crossLink}}
 	 * If an instance is held (see: {{#crossLink "FlyweightTreeNode/hold"}}{{/crossLink}}), it will be returned instead.
 	 * @method _poolFetch
-	 * @param node {Object} reference to a node within the configuration tree
-	 * @return {FlyweightTreeNode} Usually a subclass of FlyweightTreeNode positioned over the given node
+	 * @param iNode {Object} reference to a iNode within the configuration tree
+	 * @return {FlyweightTreeNode} Usually a subclass of FlyweightTreeNode positioned over the given iNode
 	 * @protected
 	 */
-	_poolFetch: function(node) {
+	_poolFetch: function(iNode) {
 		var pool,
-			fwNode = node._held,
-			type = this._getTypeString(node);
-			
+			fwNode = iNode._held,
+			type = this._getTypeString(iNode);
+
 		if (fwNode) {
 			return fwNode;
 		}
@@ -205,10 +299,10 @@ FWMgr.prototype = {
 		}
 		if (pool.length) {
 			fwNode = pool.pop();
-			fwNode._slideTo(node);
+			fwNode._slideTo(iNode);
 			return fwNode;
 		}
-		return this._createNode(node);
+		return this._createNode(iNode);
 	},
 	/**
 	 * Returns the FlyweightTreeNode instance to the pool.
@@ -218,43 +312,43 @@ FWMgr.prototype = {
 	 * @protected
 	 */
 	_poolReturn: function (fwNode) {
-		if (fwNode._node._held) {
+		if (fwNode._iNode._held) {
 			return;
 		}
 		var pool,
-			type = this._getTypeString(fwNode._node);
+			type = this._getTypeString(fwNode._iNode);
 		pool = this._pool[type];
 		if (pool) {
 			pool.push(fwNode);
 		}
-		
+
 	},
 	/**
-	 * Returns a new instance of the type given in node or the 
+	 * Returns a new instance of the type given in iNode or the
 	 * {{#crossLink "defaultType"}}{{/crossLink}} if none specified
-	 * and slides it on top of the node provided.
+	 * and slides it on top of the iNode provided.
 	 * @method _createNode
-	 * @param node {Object} reference to a node within the configuration tree
+	 * @param iNode {Object} reference to a iNode within the configuration tree
 	 * @return {FlyweightTreeNode} Instance of the corresponding subclass of FlyweightTreeNode
 	 * @protected
 	 */
-	_createNode: function (node) {
+	_createNode: function (iNode) {
 		var newNode,
-			Type = node.type || this.get('defaultType');
+			Type = iNode.type || this.get('defaultType');
 		if (Lang.isString(Type)) {
 			Type = Y[Type];
 		}
 		if (Type) {
 			newNode = new Type();
 			if (newNode instanceof Y.FlyweightTreeNode) {
-				// I need to do this otherwise Attribute will initialize 
-				// the real node with default values when activating a lazyAdd attribute.
+				// I need to do this otherwise Attribute will initialize
+				// the real iNode with default values when activating a lazyAdd attribute.
 				newNode._slideTo({});
-				Y.Array.each(Y.Object.keys(newNode._state.data), newNode._addLazyAttr, newNode);
+				YArray.each(Y.Object.keys(newNode._state.data), newNode._addLazyAttr, newNode);
 				// newNode.getAttrs();
 				// That's it (see above)
 				newNode._root =  this;
-				newNode._slideTo(node);
+				newNode._slideTo(iNode);
 				return newNode;
 			}
 		}
@@ -263,13 +357,13 @@ FWMgr.prototype = {
 	/**
 	 * Returns an instance of Flyweight node positioned over the root
 	 * @method getRoot
-	 * @return {FlyweightTreeNode} 
+	 * @return {FlyweightTreeNode}
 	 */
 	getRoot: function () {
 		return this._poolFetch(this._tree);
 	},
 	/**
-	 * Returns a string with the markup for the whole tree. 
+	 * Returns a string with the markup for the whole tree.
 	 * A subclass might opt to produce markup for those parts visible. (lazy rendering)
 	 * @method _getHTML
 	 * @return {String} HTML for this widget
@@ -285,22 +379,22 @@ FWMgr.prototype = {
 		return s;
 	},
 	/**
-	 * Locates a node in the tree by the element that represents it.
-	 * @method _findNodeByElement
+	 * Locates a iNode in the tree by the element that represents it.
+	 * @method _findINodeByElement
 	 * @param el {Node} Any element belonging to the tree
-	 * @return {Object} Node that produced the markup for that element or null if not found
+	 * @return {Object} iNode that produced the markup for that element or null if not found
 	 * @protected
 	 */
-	_findNodeByElement: function(el) {
+	_findINodeByElement: function(el) {
 		var id = el.ancestor(DOT + FWNode.CNAME_NODE, true).get('id'),
 			found = null,
-			scan = function (node) {
-				if (node.id === id) {
-					found = node;
+			scan = function (iNode) {
+				if (iNode.id === id) {
+					found = iNode;
 					return true;
 				}
-				if (node.children) {
-					return Y.Array.some(node.children, scan);
+				if (iNode.children) {
+					return YArray.some(iNode.children, scan);
 				}
 				return false;
 			};
@@ -310,37 +404,39 @@ FWMgr.prototype = {
 		return null;
 	},
 	/**
-	 * Returns a FlyweightTreeNode instance from the pool, positioned over the node whose markup generated some event.
+	 * Returns a FlyweightTreeNode instance from the pool, positioned over the iNode whose markup generated some event.
 	 * @method _poolFetchFromEvent
 	 * @param ev {EventFacade}
 	 * @return {FlyweightTreeNode} The FlyweightTreeNode instance or null if not found.
 	 * @private
 	 */
 	_poolFetchFromEvent: function (ev) {
-		var found = this._findNodeByElement(ev.domEvent.target);
+		var found = this._findINodeByElement(ev.domEvent.target);
 		if (found) {
 			return this._poolFetch(found);
 		}
-		return null;			
+		return null;
 	},
 	/**
-	 * Traverses the whole configuration tree, calling a given function for each node.
+	 * Traverses the whole configuration tree, calling a given function for each iNode.
 	 * If the function returns true, the traversing will terminate.
-	 * @method _forSomeCfgNode
-	 * @param fn {Function} Function to call on each configuration node
-	 *		@param fn.cfgNode {Object} node in the configuratino tree
-	 *		@param fn.depth {Integer} depth of this node within the tee
-	 *		@param fn.index {Integer} index of this node within the array of its siblings
-	 * @param scope {Object} scope to run the function in, defaults to this.
+	 * @method _forSomeINode
+	 * @param fn {Function} Function to call on each configuration iNode
+	 *		@param fn.iNode {Object} iNode in the configuration tree
+	 *		@param fn.depth {Integer} depth of this iNode within the tree
+	 *		@param fn.index {Integer} index of this iNode within the array of its siblings
+	 * @param scope {Object} scope to run the function in, defaults to `this`.
 	 * @return true if any of the function calls returned true (the traversal was terminated earlier)
 	 * @protected
 	 */
-	_forSomeCfgNode: function(fn, scope) {
+	_forSomeINode: function(fn, scope) {
 		scope = scope || this;
-		var loop = function(cfgNode, depth) {
-			return Y.Array.some(cfgNode.children || [], function(childNode, index) {
-				fn.call(scope, childNode,depth, index);
-				return loop(childNode,depth + 1);
+		var loop = function(iNode, depth) {
+			return YArray.some(iNode.children || [], function(childINode, index) {
+				if (fn.call(scope, childINode,depth, index)) {
+                    return true;
+                }
+				return loop(childINode,depth + 1);
 			});
 		};
 		return loop(this._tree, 0);
@@ -359,24 +455,95 @@ FWMgr.prototype = {
 	 */
 	forSomeNodes: function (fn, scope) {
 		scope = scope || this;
-		
-		var forOneLevel = function (node, depth) {
-			node.forSomeChildren(function (node, index, array) {
-				if (fn.call(scope,node, depth, index, array) === true) {
+
+		var forOneLevel = function (fwNode, depth) {
+			fwNode.forSomeChildren(function (fwNode, index, array) {
+				if (fn.call(scope, fwNode, depth, index, array) === true) {
 					return true;
 				}
-				return forOneLevel(node, depth+1);
+				return forOneLevel(fwNode, depth+1);
 			});
 		};
 		return forOneLevel(this.getRoot(), 1);
-	}
+	},
+    /**
+     * Getter for the {{#crossLink "focusedNode:attribute"}}{{/crossLink}} attribute
+     * @method _focusedNodeGetter
+     * @return {FlyweightNode} Node that would have the focus if the widget is focused
+     * @private
+     */
+    _focusedNodeGetter: function () {
+        return this._poolFetch(this._focusedINode);
+    },
+    /**
+     * Setter for the {{#crossLink "focusedNode:attribute"}}{{/crossLink}} attribute
+     * @method _focusedNodeSetter
+     * @param value {FlyweightNode} Node to receive the focus.
+     * @return {Object} iNode matching the focused node.
+     * @private
+     */
+    _focusedNodeSetter: function (value) {
+        if (!value || value instanceof Y.FlyweightTreeNode) {
+            var newINode = (value?value._iNode:this._tree.children[0]);
+            this._focusOnINode(newINode);
+            return newINode;
+        } else {
+            return Y.Attribute.INVALID_VALUE;
+        }
+    },
+    /**
+     * Sets the focus on the given iNode
+     * @method _focusOnINode
+     * @param iNode {Object} iNode to receive the focus
+     * @private
+     */
+    _focusOnINode: function (iNode) {
+        var prevINode = this._focusedINode,
+            el;
+
+        if (iNode && iNode !== prevINode) {
+
+            el = Y.one('#' + prevINode.id + ' .' + CNAME_CONTENT);
+            el.blur();
+            el.set(TABINDEX, -1);
+
+            el = Y.one('#' + iNode.id + ' .' + CNAME_CONTENT);
+            el.focus();
+            el.set(TABINDEX,0);
+
+            this._focusedINode = iNode;
+        }
+
+    },
+    /**
+     * Setter for the {{#crossLink "dynamicLoader:attribute"}}{{/crossLink}} attribute.
+     * It changes the expanded attribute to false on childless iNodes not marked with `isLeaf
+     * since they can now be expanded.
+     * @method
+     * @param value {Function | null } Function to handle the loading of nodes on demand
+     * @return {Function | null | INVALID_VALUE} function set or rejection
+     * @private
+     */
+    _dynamicLoaderSetter: function (value) {
+        if (!Lang.isFunction(value) &&  value !== null) {
+            return Y.Attribute.INVALID_VALUE;
+        }
+        if (value) {
+            this._forSomeINode(function(iNode) {
+                if (!iNode.children) {
+                    iNode.expanded = !!iNode.isLeaf;
+                }
+            });
+        }
+        return value;
+    }
 };
 
 Y.FlyweightTreeManager = FWMgr;
 /**
-* An implementation of the flyweight pattern.  
-* This object can be slid on top of a literal object containing the definition 
-* of a tree and will take its state from that node it is slid upon.
+* An implementation of the flyweight pattern.
+* This object can be slid on top of a literal object containing the definition
+* of a tree and will take its state from that iNode it is slid upon.
 * It relies for most of its functionality on the flyweight manager object,
 * which contains most of the code.
 * @module gallery-flyweight-tree
@@ -390,17 +557,17 @@ Y.FlyweightTreeManager = FWMgr;
 * @constructor  Do not instantiate directly.
 */
 FWNode = Y.Base.create(
-	'flyweight-tree-node',
+	FWNODE_NAME,
 	Y.Base,
 	[],
 	{
 		/**
-		 * Reference to the node in the configuration tree it has been slid over.
-		 * @property _node
+		 * Reference to the iNode in the configuration tree it has been slid over.
+		 * @property _iNode
 		 * @type {Object}
 		 * @private
 		 **/
-		_node:null,
+		_iNode:null,
 		/**
 		 * Reference to the FlyweightTreeManager instance this node belongs to.
 		 * It is set by the root and should be considered read-only.
@@ -426,34 +593,34 @@ FWNode = Y.Base.create(
 		 */
 		_getHTML: function(index, nSiblings, depth) {
 			// assumes that if you asked for the HTML it is because you are rendering it
-			var self = this,
-				node = this._node,
+			var root = this._root,
+                iNode = this._iNode,
 				attrs = this.getAttrs(),
-				s = '', 
-				templ = node.template,
-				childCount = node.children && node.children.length,
+				s = '',
+				templ = iNode.template,
+				childCount = iNode.children && iNode.children.length,
 				nodeClasses = [CNAME_NODE],
 				superConstructor = this.constructor;
-				
+
 			while (!templ) {
 				templ = superConstructor.TEMPLATE;
 				superConstructor = superConstructor.superclass.constructor;
-				
+
 			}
 
-			node._rendered = true;
+			iNode._rendered = true;
 			if (childCount) {
 				if (attrs.expanded) {
-					node._childrenRendered = true;
+					iNode._childrenRendered = true;
 					this.forSomeChildren( function (fwNode, index, array) {
-						s += fwNode._getHTML(index, array.length, depth+1);
+						s += fwNode._getHTML(index, array.length, depth + 1);
 					});
 					nodeClasses.push(CNAME_EXPANDED);
 				} else {
 					nodeClasses.push(CNAME_COLLAPSED);
 				}
 			} else {
-				if (this._root.get('dynamicLoader') && !node.isLeaf) {
+				if (this._root.get(DYNAMIC_LOADER) && !iNode.isLeaf) {
 					nodeClasses.push(CNAME_COLLAPSED);
 				} else {
 					nodeClasses.push(CNAME_NOCHILDREN);
@@ -461,32 +628,34 @@ FWNode = Y.Base.create(
 			}
 			if (index === 0) {
 				nodeClasses.push(CNAME_FIRSTCHILD);
-			} 
+			}
 			if (index === nSiblings - 1) {
 				nodeClasses.push(CNAME_LASTCHILD);
 			}
 			attrs.children = s;
 			attrs.cname_node = nodeClasses.join(' ');
+			attrs.cname_content = CNAME_CONTENT;
 			attrs.cname_children = CNAME_CHILDREN;
+            attrs.tabIndex = (iNode === root._focusedINode)?0:-1;
 
 			return Lang.sub(templ, attrs);
 
 		},
 		/**
-		 * Method to slide this instance on top of another node in the configuration object
+		 * Method to slide this instance on top of another iNode in the configuration object
 		 * @method _slideTo
-		 * @param node {Object} node in the underlying configuration tree to slide this object on top of.
+		 * @param iNode {Object} iNode in the underlying configuration tree to slide this object on top of.
 		 * @private
 		 */
-		_slideTo: function (node) {
-			this._node = node;
-			this._stateProxy = node;
+		_slideTo: function (iNode) {
+			this._iNode = iNode;
+			this._stateProxy = iNode;
 		},
 		/**
 		 * Executes the given function on each of the child nodes of this node.
 		 * @method forSomeChildren
 		 * @param fn {Function} Function to be executed on each node
-		 *		@param fn.child {FlyweightTreeNode} Instance of a suitable subclass of FlyweightTreeNode, 
+		 *		@param fn.child {FlyweightTreeNode} Instance of a suitable subclass of FlyweightTreeNode,
 		 *		positioned on top of the child node
 		 *		@param fn.index {Integer} Index of this child within the array of children
 		 *		@param fn.array {Array} array containing itself and its siblings
@@ -494,12 +663,12 @@ FWNode = Y.Base.create(
 		**/
 		forSomeChildren: function(fn, scope) {
 			var root = this._root,
-				children = this._node.children,
+				children = this._iNode.children,
 				child, ret;
 			scope = scope || this;
 			if (children && children.length) {
-				YArray.some(children, function (node, index, array) {
-					child = root._poolFetch(node);
+				YArray.some(children, function (iNode, index, array) {
+					child = root._poolFetch(iNode);
 					ret = fn.call(scope, child, index, array);
 					root._poolReturn(child);
 					return ret;
@@ -509,7 +678,7 @@ FWNode = Y.Base.create(
 		/**
 		 * Getter for the expanded configuration attribute.
 		 * It is meant to be overriden by the developer.
-		 * The supplied version defaults to true if the expanded property 
+		 * The supplied version defaults to true if the expanded property
 		 * is not set in the underlying configuration tree.
 		 * It can be overriden to default to false.
 		 * @method _expandedGetter
@@ -517,12 +686,12 @@ FWNode = Y.Base.create(
 		 * @protected
 		 */
 		_expandedGetter: function () {
-			return this._node.expanded !== false;
+			return this._iNode.expanded !== false;
 		},
 		/**
 		 * Setter for the expanded configuration attribute.
 		 * It renders the child nodes if this branch has never been expanded.
-		 * Then sets the className on the node to the static constants 
+		 * Then sets the className on the node to the static constants
 		 * CNAME_COLLAPSED or CNAME_EXPANDED from Y.FlyweightTreeManager
 		 * @method _expandedSetter
 		 * @param value {Boolean} new value for the expanded attribute
@@ -530,19 +699,19 @@ FWNode = Y.Base.create(
 		 */
 		_expandedSetter: function (value) {
 			var self = this,
-				node = self._node,
+				iNode = self._iNode,
 				root = self._root,
-				el = Y.one('#' + node.id),
-				dynLoader = root.get('dynamicLoader');
-				
-			node.expanded = value = !!value;
-			if (dynLoader && !node.isLeaf && (!node.children  || !node.children.length)) {
+				el = Y.one('#' + iNode.id),
+				dynLoader = root.get(DYNAMIC_LOADER);
+
+			iNode.expanded = value = !!value;
+			if (dynLoader && !iNode.isLeaf && (!iNode.children  || !iNode.children.length)) {
 				this._loadDynamic();
 				return;
 			}
-			if (node.children && node.children.length) {
+			if (iNode.children && iNode.children.length) {
 				if (value) {
-					if (!node._childrenRendered) {
+					if (!iNode._childrenRendered) {
 						self._renderChildren();
 					}
 					el.replaceClass(CNAME_COLLAPSED, CNAME_EXPANDED);
@@ -550,6 +719,7 @@ FWNode = Y.Base.create(
 					el.replaceClass(CNAME_EXPANDED, CNAME_COLLAPSED);
 				}
 			}
+            el.set('aria-expanded', String(value));
 		},
 		/**
 		 * Triggers the dynamic loading of children for this node.
@@ -560,46 +730,46 @@ FWNode = Y.Base.create(
 			var self = this,
 				root = self._root;
 			Y.one('#' + this.get('id')).replaceClass(CNAME_COLLAPSED, CNAME_LOADING);
-			root.get('dynamicLoader').call(root, self, Y.bind(self._dynamicLoadReturn, self));
-			
+			root.get(DYNAMIC_LOADER).call(root, self, Y.bind(self._dynamicLoadReturn, self));
+
 		},
 		/**
 		 * Callback for the dynamicLoader method.
 		 * @method _dynamicLoadReturn
-		 * @param response {Array} array of child nodes 
+		 * @param response {Array} array of child iNodes
 		 * @private
 		 */
 		_dynamicLoadReturn: function (response) {
 			var self = this,
-				node = self._node,
+				iNode = self._iNode,
 				root = self._root;
 
 			if (response) {
 
-				node.children = response;
-				root._initNodes(node);
+				iNode.children = response;
+				root._initNodes(iNode);
 				self._renderChildren();
 			} else {
-				node.isLeaf = true;
+				iNode.isLeaf = true;
 			}
 			// isLeaf might have been set in the response, not just in the line above.
-			Y.one('#' + node.id).replaceClass(CNAME_LOADING, (node.isLeaf?CNAME_NOCHILDREN:CNAME_EXPANDED));
+			Y.one('#' + iNode.id).replaceClass(CNAME_LOADING, (iNode.isLeaf?CNAME_NOCHILDREN:CNAME_EXPANDED));
 		},
 		/**
-		 * Renders the children of this node.  
+		 * Renders the children of this node.
 		 * It the children had been rendered, they will be replaced.
 		 * @method _renderChildren
 		 * @private
 		 */
 		_renderChildren: function () {
 			var s = '',
-				node = this._node,
+				iNode = this._iNode,
 				depth = this.get('depth');
-			node._childrenRendered = true;
+			iNode._childrenRendered = true;
 			this.forSomeChildren(function (fwNode, index, array) {
 				s += fwNode._getHTML(index, array.length, depth + 1);
 			});
-			Y.one('#' + node.id + ' .' + CNAME_CHILDREN).setContent(s);
+			Y.one('#' + iNode.id + ' .' + CNAME_CHILDREN).setContent(s);
 		},
 		/**
 		 * Prevents this instance from being returned to the pool and reused.
@@ -608,40 +778,40 @@ FWNode = Y.Base.create(
 		 * @chainable
 		 */
 		hold: function () {
-			return (this._node._held = this);
+			return (this._iNode._held = this);
 		},
 		/**
 		 * Allows this instance to be returned to the pool and reused.
-		 * 
+		 *
 		 * __Important__: This instance should not be used after being released
 		 * @method release
 		 * @chainable
 		 */
 		release: function () {
-			this._node._held = null;
+			this._iNode._held = null;
 			this._root._poolReturn(this);
 			return this;
 		},
 		/**
 		 * Returns the parent node for this node or null if none exists.
-		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
+		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.
 		 * Remember to release the copy to the pool when done.
 		 * @method getParent
 		 * @return FlyweightTreeNode
 		 */
 		getParent: function() {
-			var node = this._node._parent;
-			return (node?this._root._poolFetch(node):null);
+			var iNode = this._iNode._parent;
+			return (iNode?this._root._poolFetch(iNode):null);
 		},
 		/**
 		 * Returns the next sibling node for this node or null if none exists.
-		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
+		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.
 		 * Remember to release the copy to the pool when done.
 		 * @method getNextSibling
 		 * @return FlyweightTreeNode
 		 */
 		getNextSibling: function() {
-			var parent = this._node._parent,
+			var parent = this._iNode._parent,
 				siblings = (parent && parent.children) || [],
 				index = siblings.indexOf(this) + 1;
 			if (index === 0 || index > siblings.length) {
@@ -651,13 +821,13 @@ FWNode = Y.Base.create(
 		},
 		/**
 		 * Returns the previous sibling node for this node or null if none exists.
-		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.  
+		 * The copy is not on {{#crossLink "hold"}}{{/crossLink}}.
 		 * Remember to release the copy to the pool when done.
 		 * @method getPreviousSibling
 		 * @return FlyweightTreeNode
 		 */
 		getPreviousSibling: function() {
-			var parent = this._node._parent,
+			var parent = this._iNode._parent,
 				siblings = (parent && parent.children) || [],
 				index = siblings.indexOf(this) - 1;
 			if (index < 0) {
@@ -665,23 +835,53 @@ FWNode = Y.Base.create(
 			}
 			return this._root._poolFetch(siblings[index]);
 		},
-		
+        /**
+         * Sets the focus to this node.
+         * @method focus
+         * @chainable
+         */
+        focus: function() {
+            return this._root.set(FOCUSED, this);
+        },
+        /**
+         * Removes the focus from this node
+         * @method blur
+         * @chainable
+         */
+        blur: function () {
+            return this._root.set(FOCUSED, null);
+        },
 		/**
 		 * Sugar method to toggle the expanded state of the node.
 		 * @method toggle
 		 * @chainable
 		 */
 		toggle: function() {
-			this.set('expanded', !this.get('expanded'));
-			return this;
+			return this.set(EXPANDED, !this.get(EXPANDED));
 		},
+        /**
+         * Sugar method to expand a node
+         * @method expand
+         * @chainable
+         */
+        expand: function() {
+            return this.set(EXPANDED, true);
+        },
+        /**
+         * Sugar method to collapse this node
+         * @method collapse
+         * @chainable
+         */
+        collapse: function() {
+            return this.set(EXPANDED, false);
+        },
 		/**
 		 * Returns true if this node is the root node
 		 * @method isRoot
 		 * @return {Boolean} true if root node
 		 */
 		isRoot: function() {
-			return this._root._tree === this._node;
+			return this._root._tree === this._iNode;
 		},
 		/**
 		* Gets the stored value for the attribute, from either the
@@ -693,12 +893,12 @@ FWNode = Y.Base.create(
 		* @return {Any} The stored value of the attribute
 		*/
 		_getStateVal : function(name) {
-			var node = this._node;
-			if (this._state.get(name, BYPASS_PROXY) || !node) {
+			var iNode = this._iNode;
+			if (this._state.get(name, BYPASS_PROXY) || !iNode) {
 				return this._state.get(name, VALUE);
 			}
-			if (node.hasOwnProperty(name)) {
-				return node[name];
+			if (iNode.hasOwnProperty(name)) {
+				return iNode[name];
 			}
 			return this._state.get(name, VALUE);
 		},
@@ -713,11 +913,11 @@ FWNode = Y.Base.create(
 		* @param {Any} value The value of the attribute
 		*/
 		_setStateVal : function(name, value) {
-			var node = this._node;
-			if (this._state.get(name, BYPASS_PROXY) || this._state.get(name, 'initializing') || !node) {
+			var iNode = this._iNode;
+			if (this._state.get(name, BYPASS_PROXY) || this._state.get(name, 'initializing') || !iNode) {
 				this._state.add(name, VALUE, value);
 			} else {
-				node[name] = value;
+				iNode[name] = value;
 			}
 		}
 	},
@@ -725,25 +925,60 @@ FWNode = Y.Base.create(
 		/**
 		 * Template string to be used to render this node.
 		 * It should be overriden by the subclass.
-		 *    
+		 *
 		 * It contains the HTML markup for this node plus placeholders,
-		 * enclosed in curly braces, that have access to any of the 
-		 * configuration attributes of this node plus the following
-		 * additional placeholders:
-		 * 
-		 * * children: The markup for the children of this node will be placed here
-		 * * cname_node: The className for the HTML element enclosing this node.
-		 *   The template should always use this className to help it locate the DOM element for this node.
-		 * * cname_children: The className for the HTML element enclosing the children of this node.
-		 * The template should always use this className to help it locate the DOM element that contains the children of this node.
-		 * 
-		 * The template should also add the `id` attribute to the DOM Element representing this node. 
+		 * enclosed in curly braces, that have access to any of the
+		 * configuration attributes of this node plus several predefined placeholders.
+         *
+         * It must contain at least three elements identified by their classNames:
+
+         +----------------------------+
+         | {cname_node}               |
+         | +------------------------+ |
+         | | {cname_content}        | |
+         | +------------------------+ |
+         |                            |
+         | +------------------------+ |
+         | | {cname_children}       | |
+         | +------------------------+ |
+         +----------------------------+
+
+         * For example:
+
+         '<div id="{id}" class="{cname_node}" role="" aria-expanded="{expanded}">' +
+               '<div tabIndex="{tabIndex}" class="{cname_content}">{label}</div>' +
+               '<div class="{cname_children}" role="group">{children}</div>' +
+         '</div>'
+
+         * The outermost container identified by the className `{cname_node}`
+         * must also use the `{id}` placeholder to set the `id` of the node.
+         * It should also have the proper ARIA role assigned and the
+         * `aria-expanded` set to the `{expanded}` placeholder.
+         *
+         * It must contain two further elements:
+         *
+         * * A container for the contents of this node, identified by the className
+         *   `{cname_content}` which should contain everything the user would associate
+         *   with this node, such as the label and other status indicators
+         *   such as toggle and selection indicators.
+         *   This is the element that would receive the focus of the node, thus,
+         *   it must have a `{tabIndex}` placeholder to receive the appropriate
+         *   value for the `tabIndex` attribute.
+         *
+         * * The other element is the container for the children of this node.
+         *   It will be identified by the className `{cname_children}` and it
+         *   should enclose the placeholder `{children}`.
+         *
 		 * @property TEMPLATE
 		 * @type {String}
-		 * @default '<div id="{id}" class="{cname_node}"><div class="content">{label}</div><div class="{cname_children}">{children}</div></div>'
+		 * @default '<div id="{id}" class="{cname_node}" role="" aria-expanded="{expanded}"><div tabIndex="{tabIndex}"
+         class="{cname_content}">{label}</div><div class="{cname_children}" role="group">{children}</div></div>'
 		 * @static
 		 */
-		TEMPLATE: '<div id="{id}" class="{cname_node}"><div class="content">{label}</div><div class="{cname_children}">{children}</div></div>',
+		TEMPLATE: '<div id="{id}" class="{cname_node}" role="" aria-expanded="{expanded}">' +
+                        '<div tabIndex="{tabIndex}" class="{cname_content}">{label}</div>' +
+                        '<div class="{cname_children}" role="group">{children}</div>' +
+                   '</div>',
 		/**
 		 * CCS className constant to use as the class name for the DOM element representing the node.
 		 * @property CNAME_NODE
@@ -752,7 +987,14 @@ FWNode = Y.Base.create(
 		 */
 		CNAME_NODE: CNAME_NODE,
 		/**
-		 * CCS className constant to use as the class name for the DOM element that will containe the children of this node.
+		 * CCS className constant to use as the class name for the DOM element that will contain the label and/or status of this node.
+		 * @property CNAME_CONTENT
+		 * @type String
+		 * @static
+		 */
+		CNAME_CONTENT: CNAME_CONTENT,
+		/**
+		 * CCS className constant to use as the class name for the DOM element that will contain the children of this node.
 		 * @property CNAME_CHILDREN
 		 * @type String
 		 * @static
@@ -806,7 +1048,7 @@ FWNode = Y.Base.create(
 			 * @attribute root
 			 * @type {FlyweightTreeManager}
 			 * @readOnly
-			 * 
+			 *
 			 */
 
 			root: {
@@ -818,8 +1060,8 @@ FWNode = Y.Base.create(
 			},
 
 			/**
-			 * Template to use on this particular instance.  
-			 * The renderer will default to the static TEMPLATE property of this class 
+			 * Template to use on this particular instance.
+			 * The renderer will default to the static TEMPLATE property of this class
 			 * (the preferred way) or the nodeTemplate configuration attribute of the root.
 			 * See the TEMPLATE static property.
 			 * @attribute template
@@ -840,7 +1082,7 @@ FWNode = Y.Base.create(
 				value: ''
 			},
 			/**
-			 * Id to assign to the DOM element that contains this node.  
+			 * Id to assign to the DOM element that contains this node.
 			 * If none was supplied, it will generate one
 			 * @attribute id
 			 * @type {Identifier}
@@ -861,11 +1103,11 @@ FWNode = Y.Base.create(
 				_bypassProxy: true,
 				readOnly: true,
 				getter: function () {
-					var count = 0, 
-						node = this._node;
-					while (node._parent) {
+					var count = 0,
+						iNode = this._iNode;
+					while (iNode._parent) {
 						count += 1;
-						node = node._parent;
+						iNode = iNode._parent;
 					}
 					return count-1;
 				}
@@ -888,4 +1130,4 @@ Y.FlyweightTreeNode = FWNode;
 
 
 
-}, '@VERSION@', {"requires": ["base-base", "base-build", "classnamemanager"], "skinnable": false});
+}, '@VERSION@', {"requires": ["base-base", "base-build", "classnamemanager", "event-focus"], "skinnable": false});

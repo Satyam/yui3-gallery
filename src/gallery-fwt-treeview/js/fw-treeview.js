@@ -27,8 +27,6 @@
  * @class FWTreeView
  * @extends Widget
  * @uses FlyweightTreeManager
- */
-/**
  * @constructor
  * @param config {Object} Configuration attributes, amongst them:
  * @param config.tree {Array} Array of objects defining the first level of nodes.
@@ -38,17 +36,36 @@
  * @param [config.tree.type=FWTreeNode] {FWTreeNode | String} Class used to create instances for this node.
  * It can be a reference to an object or a name that can be resolved as `Y[name]`.
  * @param [config.tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing this node.
- * @param [config.tree.template] {String} Template for this particular node. 
+ * @param [config.tree.template] {String} Template for this particular node.
  */
 Y.FWTreeView = Y.Base.create(
 	'fw-treeview',
 	Y.Widget,
 	[Y.FlyweightTreeManager],
 	{
+        /**
+         * Array of iNodes containing a flat list of all nodes visible regardless
+         * of their depth in the tree.
+         * Used to handle keyboard navigation.
+         * @property _visibleSequence
+         * @type Array or null
+         * @default null
+         * @private
+         */
+        _visibleSequence: null,
+        /**
+         * Index, within {{#crossLink "_visibleSequence"}}{{/crossLink}}, of the iNode having the focus.
+         * Used for keyboard navigation.
+         * @property _visibleIndex
+         * @type Integer
+         * @default null
+         * @private
+         */
+        _visibleIndex: null,
 		/**
 		 * Widget lifecycle method
 		 * @method initializer
-		 * @param config {object} configuration object of which 
+		 * @param config {object} configuration object of which
 		 * `tree` contains the tree configuration.
 		 */
 		initializer: function (config) {
@@ -63,8 +80,157 @@ Y.FWTreeView = Y.Base.create(
 		 * @protected
 		 */
 		renderUI: function () {
-			this.get(CBX).setContent(this._getHTML());
+			var cbx = this.get(CBX);
+            cbx.setContent(this._getHTML());
+            cbx.set('role','tree');
 		},
+		/**
+		 * Widget lifecyle method
+		 * I opted for not including this method in FlyweightTreeManager so that
+		 * it can be used to extend Base, not just Widget
+		 * @method renderUI
+		 * @protected
+		 */
+        bindUI: function () {
+            this.get(CBX).on('keydown', this._onKeyDown, this);
+        },
+        /**
+         * Listener for keyboard events to handle keyboard navigation
+         * @method _onKeyDown
+         * @param ev {EventFacade} Standard YUI key facade
+         * @private
+         */
+        _onKeyDown: function (ev) {
+            var ch = ev.charCode,
+                shift = ev.shiftKey,
+                ctrl = ev.ctrlKey,
+                iNode = this._focusedINode,
+                seq = this._visibleSequence,
+                index = this._visibleIndex,
+                fwNode;
+
+            switch (ch) {
+                case 38: // up
+                    if (!seq) {
+                        seq = this._rebuildSequence();
+                        index = seq.indexOf(iNode);
+                    }
+                    index -=1;
+                    if (index >= 0) {
+                        iNode = seq[index];
+                        this._visibleIndex = index;
+                    } else {
+                        iNode = null;
+                    }
+                    break;
+                case 39: // right
+                    if (iNode.expanded) {
+                        if (iNode.children && iNode.children.length) {
+                            iNode = iNode.children[0];
+                        } else {
+                            iNode = null;
+                        }
+                    } else {
+                        this._poolReturn(this._poolFetch(iNode).set(EXPANDED, true));
+                        iNode = null;
+                    }
+
+                    break;
+                case 40: // down
+                    if (!seq) {
+                        seq = this._rebuildSequence();
+                        index = seq.indexOf(iNode);
+                    }
+                    index +=1;
+                    if (index < seq.length) {
+                        iNode = seq[index];
+                        this._visibleIndex = index;
+                    } else {
+                        iNode = null;
+                    }
+                    break;
+                case 37: // left
+                    if (iNode.expanded && iNode.children) {
+                        this._poolReturn(this._poolFetch(iNode).set(EXPANDED, false));
+                        iNode = null;
+                    } else {
+                        iNode = iNode._parent;
+                        if (iNode === this._tree) {
+                            iNode = null;
+                        }
+                    }
+
+                    break;
+                case 36: // home
+                    iNode = this._tree.children && this._tree.children[0];
+                    break;
+                case 35: // end
+                    index = this._tree.children && this._tree.children.length;
+                    if (index) {
+                        iNode = this._tree.children[index -1];
+                    } else {
+                        iNode = null;
+                    }
+                    break;
+                case 13: // enter
+                    fwNode = this._poolFetch(iNode);
+                    fwNode.fire('enterkey', {domEvent:ev});
+                    this._poolReturn(fwNode);
+                    iNode = null;
+                    break;
+                case 32: // spacebar
+                    fwNode = this._poolFetch(iNode);
+                    fwNode.fire('spacebar', {domEvent:ev});
+                    this._poolReturn(fwNode);
+                    iNode = null;
+                    break;
+                case 106: // asterisk on the numeric keypad
+                    this.expandAll();
+                    break;
+                default: // initial
+                    iNode = null;
+                    break;
+            }
+            if (iNode) {
+                this._focusOnINode(iNode);
+                ev.halt();
+                return false;
+            }
+            return true;
+        },
+        /**
+         * Listener for the focus event.
+         * Updates the node receiving the focus when the widget gets the focus.
+         * @method _aferFocus
+         * @param ev {EventFacade} Standard event facade
+         * @private
+         */
+        _afterFocus: function (ev) {
+            var iNode = this._findINodeByElement(ev.domEvent.target);
+            this._focusOnINode(iNode);
+            if (this._visibleSequence) {
+                this._visibleIndex = this._visibleSequence.indexOf(iNode);
+            }
+        },
+        /**
+         * Rebuilds the array of {{#crossLink "_visibleSequence"}}{{/crossLink}} that can be traversed with the up/down arrow keys
+         * @method _rebuildSequence
+         * @private
+         */
+        _rebuildSequence: function () {
+            var seq = [],
+                loop = function(iNode) {
+                    YArray.each(iNode.children || [], function(childINode) {
+                        seq.push(childINode);
+                        if (childINode.expanded) {
+                            loop(childINode);
+                        }
+                    });
+                };
+            loop(this._tree);
+            return (this._visibleSequence = seq);
+
+        },
 		/**
 		 * Overrides the default CONTENT_TEMPLATE to make it an unordered list instead of a div
 		 * @property CONTENT_TEMPLATE
