@@ -17,6 +17,8 @@ var Lang = Y.Lang,
 	},
 	CBX = 'contentBox',
     EXPANDED = 'expanded',
+    SELECTED = 'selected',
+    CHANGE = 'Change',
 	NOT_SELECTED = 0,
 	PARTIALLY_SELECTED = 1,
 	FULLY_SELECTED = 2;

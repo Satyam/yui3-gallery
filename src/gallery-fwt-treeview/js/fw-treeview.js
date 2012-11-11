@@ -102,8 +102,6 @@ Y.FWTreeView = Y.Base.create(
          */
         _onKeyDown: function (ev) {
             var ch = ev.charCode,
-                shift = ev.shiftKey,
-                ctrl = ev.ctrlKey,
                 iNode = this._focusedINode,
                 seq = this._visibleSequence,
                 index = this._visibleIndex,

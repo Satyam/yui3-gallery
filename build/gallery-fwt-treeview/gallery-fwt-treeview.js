@@ -19,6 +19,8 @@ var Lang = Y.Lang,
 	},
 	CBX = 'contentBox',
     EXPANDED = 'expanded',
+    SELECTED = 'selected',
+    CHANGE = 'Change',
 	NOT_SELECTED = 0,
 	PARTIALLY_SELECTED = 1,
 	FULLY_SELECTED = 2;
@@ -126,13 +128,10 @@ Y.FWTreeView = Y.Base.create(
          */
         _onKeyDown: function (ev) {
             var ch = ev.charCode,
-                shift = ev.shiftKey,
-                ctrl = ev.ctrlKey,
                 iNode = this._focusedINode,
                 seq = this._visibleSequence,
                 index = this._visibleIndex,
                 fwNode;
-            console.log(ch, shift, ctrl);
 
             switch (ch) {
                 case 38: // up
@@ -211,10 +210,6 @@ Y.FWTreeView = Y.Base.create(
                     break;
                 case 106: // asterisk on the numeric keypad
                     this.expandAll();
-                    break;
-                case 34: // pgDn
-                    break;
-                case 35: // pgUp
                     break;
                 default: // initial
                     iNode = null;
@@ -318,9 +313,9 @@ Y.FWTreeView = Y.Base.create(
 	{
 		initializer: function() {
 			this.after('click', this._afterClick);
-			this.after('selectedChange', this._afterSelectedChange);
+			this.after(SELECTED + CHANGE, this._afterSelectedChange);
             this.after('spacebar', this.toggleSelection);
-            this.after('expandedChange', this._afterExpandedChanged);
+            this.after(EXPANDED + CHANGE, this._afterExpandedChanged);
 		},
         /**
          * Listens to changes in the expanded attribute to invalidate and force
@@ -352,10 +347,11 @@ Y.FWTreeView = Y.Base.create(
 		},
 		/**
 		 * Sugar method to toggle the selected state of a node.
+         * See {{#crossLink "selected:attribute"}}{{/crossLink}}.
 		 * @method toggleSelection
 		 */
 		toggleSelection: function() {
-			this.set('selected', (this.get('selected')?NOT_SELECTED:FULLY_SELECTED));
+			this.set(SELECTED, (this.get(SELECTED)?NOT_SELECTED:FULLY_SELECTED));
 		},
 		/**
 		 * Changes the UI to reflect the selected state and propagates the selection up and/or down.
@@ -367,20 +363,34 @@ Y.FWTreeView = Y.Base.create(
 		 */
 		_afterSelectedChange: function (ev) {
 			var selected = ev.newVal,
-                prefix = CNAMES.cname_sel_prefix + '-';
+                prefix = CNAMES.cname_sel_prefix + '-',
+                el;
 
 			if (!this.isRoot()) {
-				Y.one('#' + this.get('id')).replaceClass(prefix + ev.prevVal, prefix + selected);
+				el = Y.one('#' + this.get('id'));
+                el.replaceClass(prefix + ev.prevVal, prefix + selected);
+                el.set('aria-checked', this._ariaCheckedGetter());
 				if (this.get('propagateUp') && ev.src !== 'propagatingDown') {
 					this.getParent()._childSelectedChange().release();
 				}
 			}
 			if (this.get('propagateDown') && ev.src !== 'propagatingUp') {
 				this.forSomeChildren(function(node) {
-					node.set('selected' , selected, 'propagatingDown');
+					node.set(SELECTED , selected, 'propagatingDown');
 				});
 			}
 		},
+        /**
+         * Getter for the {{#crossLink "_aria_checked:attribute"}}{{/crossLink}}.
+         * Translate the internal {{#crossLink "selected:attribute"}}{{/crossLink}}
+         * to the strings the `aria_checked` attribute expects
+         * @method _ariaCheckedGetter
+         * @return {String} One of 'false', 'true' or 'mixed'
+         * @private
+         */
+        _ariaCheckedGetter: function () {
+            return ['false','mixed','true'][this.get(SELECTED)];
+        },
 		/**
 		 * Overrides the original in FlyweightTreeNode so as to propagate the selected state
 		 * on dynamically loaded nodes.
@@ -390,9 +400,9 @@ Y.FWTreeView = Y.Base.create(
 		_dynamicLoadReturn: function () {
             Y.FWTreeNode.superclass._dynamicLoadReturn.apply(this, arguments);
 			if (this.get('propagateDown')) {
-				var selected = this.get('selected');
+				var selected = this.get(SELECTED);
 				this.forSomeChildren(function(node) {
-					node.set('selected' , selected, 'propagatingDown');
+					node.set(SELECTED , selected, 'propagatingDown');
 				});
 			}
             this._root._visibleSequence = null;
@@ -408,9 +418,9 @@ Y.FWTreeView = Y.Base.create(
 			var count = 0, selCount = 0;
 			this.forSomeChildren(function (node) {
 				count +=2;
-				selCount += node.get('selected');
+				selCount += node.get(SELECTED);
 			});
-			this.set('selected', (selCount === 0?NOT_SELECTED:(selCount === count?FULLY_SELECTED:PARTIALLY_SELECTED)), {src:'propagatingUp'});
+			this.set(SELECTED, (selCount === 0?NOT_SELECTED:(selCount === count?FULLY_SELECTED:PARTIALLY_SELECTED)), {src:'propagatingUp'});
 			return this;
 		}
 
@@ -423,7 +433,8 @@ Y.FWTreeView = Y.Base.create(
 		 * @static
 		 */
 		TEMPLATE: Lang.sub(
-            '<li id="{id}" class="{cname_node} {cname_sel_prefix}-{selected}" role="treeitem" aria-expanded="{expanded}">' +
+            '<li id="{id}" class="{cname_node} {cname_sel_prefix}-{selected}" ' +
+                'role="treeitem" aria-expanded="{expanded}" aria-checked="{_aria_checked}">' +
             '<div tabIndex="{tabIndex}" class="{cname_content}"><div class="{cname_toggle}"></div>' +
             '<div class="{cname_icon}"></div><div class="{cname_selection}"></div><div class="{cname_label}">{label}</div></div>' +
             '<ul class="{cname_children}" role="group">{children}</ul></li>', CNAMES),
@@ -459,7 +470,13 @@ Y.FWTreeView = Y.Base.create(
 		ATTRS: {
 			/**
 			 * Selected/highlighted state of the node.
-			 * It can be
+             *
+             * The node selection mechanism is always enabled though it might not be visible.
+             * It only sets a suitable className on the tree node.
+             * The module is provided with a default CSS style that makes node selection visible.
+             * To enable it, add the `yui3-fw-treeview-checkbox` className to the container of the tree.
+             *
+			 * `selected` can be
 			 *
 			 * - Y.FWTreeNode.NOT_SELECTED (0) not selected
 			 * - Y.FWTreeNode.PARTIALLY_SELECTED (1) partially selected: some children are selected, some not or partially selected.
@@ -477,8 +494,22 @@ Y.FWTreeView = Y.Base.create(
 					return value === NOT_SELECTED || value === FULLY_SELECTED || value === PARTIALLY_SELECTED;
 				}
 			},
+            /**
+             * String value equivalent to the {{#crossLink "selected:attribute"}}{{/#crossLink}}
+             * for use in template expansion.
+             * @attribute _aria_checked
+             * @type String
+             * @default false
+             * @readonly
+             * @protected
+             */
+            _aria_checked: {
+                readOnly: true,
+                getter: '_ariaCheckedGetter'
+            },
 			/**
 			 * Whether selection of one node should propagate to its parent.
+             * See {{#crossLink "selected:attribute"}}{{/crossLink}}.
 			 * @attribute propagateUp
 			 * @type Boolean
 			 * @value true
@@ -489,7 +520,8 @@ Y.FWTreeView = Y.Base.create(
 			},
 			/**
 			 * Whether selection of one node should propagate to its children.
-			 * @attribute propagateDown
+             * See {{#crossLink "selected:attribute"}}{{/crossLink}}.
+             * @attribute propagateDown
 			 * @type Boolean
 			 * @value true
 			 */
@@ -501,6 +533,23 @@ Y.FWTreeView = Y.Base.create(
 	}
 );
 
-
+/**
+ * Fires when the space bar is pressed.
+ * Used internally to toggle node selection.
+ * @event spacebar
+ * @param ev {EventFacade} Standard YUI event facade for keyboard events.
+ */
+/**
+ * Fires when the enter key is pressed.
+ * @event enterkey
+ * @param ev {EventFacade} Standard YUI event facade for keyboard events.
+ */
+/**
+ * Fires when this node is clicked.
+ * Used internally to toggle expansion or selection when clicked
+ * on the corresponding icons.
+ * @event click
+ * @param ev {EventFacade} Standard YUI event facade for mouse events.
+ */
 
 }, '@VERSION@', {"requires": ["gallery-flyweight-tree", "widget", "base-build"], "skinnable": true});

@@ -18,6 +18,9 @@
         <h1>A tree with checkboxes for selection</h1>
         <p>This tree is built dynamically with randomized labels just to show selection, supposedly of files/folders.  
          The Save button will list in the container below the JSON for those files/folders marked as selected.</p>
+        <p>The container for this tree has <code>class="yui3-fw-treeview-checkbox"</code> set because node
+        selection is always active in TreeView, it just needs to be made visible through CSS styles, which
+        the default stylesheet contains and this className activates.</p>
         <div id="selContainer" class="yui3-fw-treeview-checkbox"></div>
 		<button id="save">Save</button>
 		<div id="output"></div>
@@ -265,7 +268,7 @@
 					dynamicLoader: function (node, callback) {
 						var returnFakeJSON = function(path) {
 							var i, l, f, reply = [];
-							for (i = 0,l = Math.random() * 5;i < l; i+=1) {
+							for (i = 0,l = Math.random() * 5; i < l; i+=1) {
 								f = sampleString.substr(Math.random() * sampleString.length, Math.ceil(Math.random() * 10));
 								reply.push({
 									label:f,
