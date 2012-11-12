@@ -65,8 +65,11 @@ var Lang = Y.Lang,
 FWMgr = function () {
 	this._pool = {};
 	this._initialValues = {};
-    Y.Do.after(this._doAfterRender, this, "render");
-    this.after('focus', this._afterFocus);
+    this._eventHandles = [
+        Y.Do.after(this._doAfterRender, this, "render"),
+        this.after('focus', this._afterFocus),
+        this.on('destroy', this._onDestroy)
+    ];
 };
 
 FWMgr.ATTRS = {
@@ -160,6 +163,14 @@ FWMgr.prototype = {
      */
     _focusedINode: null,
 
+    /**
+     * Event handles of events subscribed to, to detach them on destroy
+     * @property _eventHandles
+     * @type Array of EventHandles
+     * @private
+     */
+    _eventHandles: null,
+
 	/**
 	 * Method to load the configuration tree.
      * The nodes in this tree are copied into iNodes (internal nodes) for internal use.
@@ -212,6 +223,22 @@ FWMgr.prototype = {
 		});
 	},
     /**
+     * Part of the lifecycle.  Destroys the pools.
+     * @method _onDestroy
+     * @protected
+     */
+    _onDestroy: function () {
+        YArray.each(this._pool, function (fwNode) {
+            fwNode.destroy();
+        });
+        this._pool = null;
+        YArray.each(this._eventHandles, function (evHandle) {
+            evHandle.detach();
+        });
+        this._eventHandles = null;
+
+    },
+    /**
      * Initializes the events for its internal use and those requested in
      * the {{#crossLink "_domEvents"}}{{/crossLink}} array.
      * @method _doAfterRender
@@ -221,7 +248,7 @@ FWMgr.prototype = {
 		var self = this;
 		if (self._domEvents) {
 			YArray.each(self._domEvents, function (event) {
-				self.after(event, self._afterDomEvent, self);
+				self._eventHandles.push(self.after(event, self._afterDomEvent, self));
 			});
 		}
 
@@ -230,7 +257,7 @@ FWMgr.prototype = {
         self.fire = (function (original) {
             return function (type, ev) {
                 var ret;
-                if (ev.domEvent) {
+                if (ev && ev.domEvent) {
                     ev.node = this._poolFetchFromEvent(ev);
                     ret = original.call(this, type, ev);
                     this._poolReturn(ev.node);
@@ -353,7 +380,7 @@ FWMgr.prototype = {
 			Type = Y[Type];
 		}
 		if (Type) {
-			newNode = new Type();
+			newNode = new Type({root:this});
 			if (newNode instanceof Y.FlyweightTreeNode) {
 				// I need to do this otherwise Attribute will initialize
 				// the real iNode with default values when activating a lazyAdd attribute.
@@ -590,6 +617,12 @@ FWNode = Y.Base.create(
 		 * @private
 		 */
 		_root: null,
+        /**
+         *
+         */
+        initializer: function (cfg) {
+            this._root = cfg.root;
+        },
 		/**
 		 * Returns a string with the markup for this node along that of its children
 		 * produced from its attributes rendered

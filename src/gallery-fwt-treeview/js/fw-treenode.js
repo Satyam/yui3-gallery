@@ -19,10 +19,12 @@
 	[],
 	{
 		initializer: function() {
-			this.after('click', this._afterClick);
-			this.after(SELECTED + CHANGE, this._afterSelectedChange);
-            this.after('spacebar', this.toggleSelection);
-            this.after(EXPANDED + CHANGE, this._afterExpandedChanged);
+			this._root._eventHandles.push(
+                this.after('click', this._afterClick),
+                this.after(SELECTED + CHANGE, this._afterSelectedChange),
+                this.after('spacebar', this.toggleSelection),
+                this.after(EXPANDED + CHANGE, this._afterExpandedChanged)
+            );
 		},
         /**
          * Listens to changes in the expanded attribute to invalidate and force

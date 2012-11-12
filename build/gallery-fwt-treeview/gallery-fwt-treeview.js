@@ -118,7 +118,7 @@ Y.FWTreeView = Y.Base.create(
 		 * @protected
 		 */
         bindUI: function () {
-            this.get(CBX).on('keydown', this._onKeyDown, this);
+            this._eventHandles.push(this.get(CBX).on('keydown', this._onKeyDown, this));
         },
         /**
          * Listener for keyboard events to handle keyboard navigation
@@ -355,10 +355,12 @@ Y.FWTreeView = Y.Base.create(
 	[],
 	{
 		initializer: function() {
-			this.after('click', this._afterClick);
-			this.after(SELECTED + CHANGE, this._afterSelectedChange);
-            this.after('spacebar', this.toggleSelection);
-            this.after(EXPANDED + CHANGE, this._afterExpandedChanged);
+			this._root._eventHandles.push(
+                this.after('click', this._afterClick),
+                this.after(SELECTED + CHANGE, this._afterSelectedChange),
+                this.after('spacebar', this.toggleSelection),
+                this.after(EXPANDED + CHANGE, this._afterExpandedChanged)
+            );
 		},
         /**
          * Listens to changes in the expanded attribute to invalidate and force

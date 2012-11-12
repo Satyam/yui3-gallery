@@ -34,6 +34,12 @@ FWNode = Y.Base.create(
 		 * @private
 		 */
 		_root: null,
+        /**
+         *
+         */
+        initializer: function (cfg) {
+            this._root = cfg.root;
+        },
 		/**
 		 * Returns a string with the markup for this node along that of its children
 		 * produced from its attributes rendered

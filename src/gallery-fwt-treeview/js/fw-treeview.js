@@ -92,7 +92,7 @@ Y.FWTreeView = Y.Base.create(
 		 * @protected
 		 */
         bindUI: function () {
-            this.get(CBX).on('keydown', this._onKeyDown, this);
+            this._eventHandles.push(this.get(CBX).on('keydown', this._onKeyDown, this));
         },
         /**
          * Listener for keyboard events to handle keyboard navigation
