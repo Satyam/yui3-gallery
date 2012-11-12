@@ -190,6 +190,21 @@ FWMgr.prototype = {
 			});
 		}
 
+        // This should formally be done via two calls to Y.Do.before and Y.Do.after
+        // but I think it is too heavy.
+        self.fire = (function (original) {
+            return function (type, ev) {
+                var ret;
+                if (ev.domEvent) {
+                    ev.node = this._poolFetchFromEvent(ev);
+                    ret = original.call(this, type, ev);
+                    this._poolReturn(ev.node);
+                    return ret;
+                }
+                return original.call(this, type, ev);
+            };
+        })(self.fire);
+
     },
     /**
      * Expands all the nodes of the tree.
@@ -214,11 +229,10 @@ FWMgr.prototype = {
 	 *  @param ev {EventFacade} Event facade as produced by the event
 	 *  @private
 	 */
-	_afterDomEvent: function (ev) {
-		var fwNode = this._poolFetchFromEvent(ev);
+    _afterDomEvent: function(ev) {
+		var fwNode =  ev.node;
 		if (fwNode) {
 			fwNode.fire(ev.type.split(':')[1], {domEvent:ev.domEvent});
-			this._poolReturn(fwNode);
 		}
 	},
 	/**

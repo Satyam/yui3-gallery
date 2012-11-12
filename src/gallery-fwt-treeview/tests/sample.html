@@ -26,6 +26,8 @@
 		<div id="output"></div>
 		<script>
 			YUI({
+//                filter:'raw',
+//                combine:false,
 				groups: {
 					gallery: {
 						base:'../../../build/',
@@ -78,7 +80,11 @@
 
 				]});
 				tv.render('#container');
+                tv.after('mouseover', function (ev) {
+                    console.log('mousing over', ev);
+                });
 
+//
                 var ArtistNode = Y.Base.create(
 					'artist-node',
 					Y.FWTreeNode,
@@ -86,7 +92,7 @@
 					{
 
 					},{
-						TEMPLATE: '<li id="{id}" class="artistnode {cname_node}"><div tabIndex="{tabIndex}" class="yui3-flyweight-tree-node-content"><div class="yui3-fw-treeview-toggle"><\/div><div class="yui3-fw-treeview-label"><a href="{url}">{label}<\/a><\/div></div><ul class="{cname_children}">{children}<\/ul><\/li>',
+						TEMPLATE: '<li id="{id}" class="artistnode {cname_node}"><div tabIndex="{tabIndex}" class="yui3-flyweight-tree-node-content"><div class="yui3-fw-treeview-toggle"><\/div><div class="yui3-fw-treeview-label">{label}<\/div></div><ul class="{cname_children}">{children}<\/ul><\/li>',
 						ATTRS: {
 							url: {},
 							artistId: {}
@@ -101,7 +107,7 @@
 					{
 
 					},{
-						TEMPLATE: '<li id="{id}" class="albumnode {cname_node}"><div tabIndex="{tabIndex}" class="yui3-flyweight-tree-node-content"><div class="yui3-fw-treeview-toggle"><\/div><div class="yui3-fw-treeview-label"><a href="{url}">{label}<\/a> ({publisher})<\/div></div><ul class="{cname_children}">{children}<\/ul><\/li>',
+						TEMPLATE: '<li id="{id}" class="albumnode {cname_node}"><div tabIndex="{tabIndex}" class="yui3-flyweight-tree-node-content"><div class="yui3-fw-treeview-toggle"><\/div><div class="yui3-fw-treeview-label">{label} ({publisher})<\/div></div><ul class="{cname_children}">{children}<\/ul><\/li>',
 						ATTRS: {
 							url: {},
 							albumId: {},
@@ -148,7 +154,7 @@
 
 						});
 					});
-					(new Y.FWTreeView({
+					var artistTree = new Y.FWTreeView({
 						dynamicLoader: function (node, callback) {
 							if (node instanceof ArtistNode) {
 								Y.YQL(Lang.sub('select id, title, releaseYear, label, url from music.release.artist where id="{artistId}"   | sort(field="releaseYear", descending="true")', node.getAttrs()), function (response) {
@@ -212,7 +218,15 @@
 							}
 						},
 						tree: cfg
-					})).render('#dynTree');
+					});
+                    artistTree.render('#dynTree');
+                    artistTree.after(['click', 'enterkey'], function (ev) {
+                        var url = ev.node.get('url');
+                        console.log('url', url);
+                        if (url) {
+                            window.location = url;
+                        }
+                    });
 			    });
 				var sampleString = ("In computer programming, flyweight is a software design pattern. " + 
 					"A flyweight is an object that minimizes memory use by sharing as much data as possible with other similar objects; " + 

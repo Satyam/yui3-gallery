@@ -198,13 +198,27 @@ Y.FWTreeView = Y.Base.create(
                     break;
                 case 13: // enter
                     fwNode = this._poolFetch(iNode);
-                    fwNode.fire('enterkey', {domEvent:ev});
+                    this.fire('enterkey', {
+                        domEvent:ev,
+                        node: fwNode
+                    });
+                    fwNode.fire('enterkey', {
+                        domEvent:ev,
+                        node: fwNode
+                    });
                     this._poolReturn(fwNode);
                     iNode = null;
                     break;
                 case 32: // spacebar
                     fwNode = this._poolFetch(iNode);
-                    fwNode.fire('spacebar', {domEvent:ev});
+                    this.fire('spacebar', {
+                        domEvent:ev,
+                        node: fwNode
+                    });
+                    fwNode.fire('spacebar', {
+                        domEvent:ev,
+                        node: fwNode
+                    });
                     this._poolReturn(fwNode);
                     iNode = null;
                     break;
@@ -291,6 +305,35 @@ Y.FWTreeView = Y.Base.create(
 
 	}
 );
+
+/**
+ * TreeView provides all the events that Widget relays from the DOM.
+ * It adds an additional property to the EventFacade called `node`
+ * that points to the TreeNode instance that received the event.
+ *
+ * This instance is pooled and will be discarded upon return from the listener.
+ * If you need to hold on to this instance,
+ * use the {{#crossLink "TreeNode/hold"}}{{/crossLink}} method to preserve it.
+ * @event -any-
+ * @param type {String} The full name of the event fired
+ * @param ev {EventFacade} Standard YUI event facade for DOM events plus:
+ * @param ev.node {TreeNode} TreeNode instance that received the event
+ */
+/**
+ * Fires when the space bar is pressed.
+ * Used internally to toggle node selection.
+ * @event spacebar
+ * @param ev {EventFacade} YUI event facade for keyboard events, including:
+ * @param ev.domEvent {Object} The original event produced by the DOM
+ * @param ev.node {FWTreeNode} The node that had the focus when the key was pressed
+ */
+/**
+ * Fires when the enter key is pressed.
+ * @event enterkey
+ * @param ev {EventFacade} YUI event facade for keyboard events, including:
+ * @param ev.domEvent {Object} The original event produced by the DOM
+ * @param ev.node {FWTreeNode} The node that had the focus when the key was pressed
+ */
 /** This class must not be generated directly.
  *  Instances of it will be provided by FWTreeView as required.
  *
@@ -495,7 +538,7 @@ Y.FWTreeView = Y.Base.create(
 				}
 			},
             /**
-             * String value equivalent to the {{#crossLink "selected:attribute"}}{{/#crossLink}}
+             * String value equivalent to the {{#crossLink "selected:attribute"}}{{/crossLink}}
              * for use in template expansion.
              * @attribute _aria_checked
              * @type String
@@ -537,17 +580,24 @@ Y.FWTreeView = Y.Base.create(
  * Fires when the space bar is pressed.
  * Used internally to toggle node selection.
  * @event spacebar
- * @param ev {EventFacade} Standard YUI event facade for keyboard events.
+ * @param ev {EventFacade} YUI event facade for keyboard events, including:
+ * @param ev.domEvent {Object} The original event produced by the DOM
+ * @param ev.node {FWTreeNode} The node that had the focus when the key was pressed
  */
 /**
  * Fires when the enter key is pressed.
  * @event enterkey
- * @param ev {EventFacade} Standard YUI event facade for keyboard events.
+ * @param ev {EventFacade} YUI event facade for keyboard events, including:
+ * @param ev.domEvent {Object} The original event produced by the DOM
+ * @param ev.node {FWTreeNode} The node that had the focus when the key was pressed
  */
 /**
  * Fires when this node is clicked.
  * Used internally to toggle expansion or selection when clicked
  * on the corresponding icons.
+ *
+ * It cannot be prevented.  This is a helper event, the actual event
+ * happens on the TreeView instance and it is relayed here for convenience.
  * @event click
  * @param ev {EventFacade} Standard YUI event facade for mouse events.
  */
