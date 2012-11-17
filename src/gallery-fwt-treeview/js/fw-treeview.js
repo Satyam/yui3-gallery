@@ -1,4 +1,4 @@
-/** Creates a Treeview using the FlyweightTreeManager extension to handle its nodes.
+/** Creates a Treeview using the FlyweightTreeManager Widget to handle its nodes.
  * It creates the tree based on an object passed as the `tree` attribute in the constructor.
  * @example
  *
@@ -25,8 +25,7 @@
  */
 /**
  * @class FWTreeView
- * @extends Widget
- * @uses FlyweightTreeManager
+ * @extends FlyweightTreeManager
  * @constructor
  * @param config {Object} Configuration attributes, amongst them:
  * @param config.tree {Array} Array of objects defining the first level of nodes.
@@ -38,10 +37,10 @@
  * @param [config.tree.id=Y.guid()] {String} Identifier to assign to the DOM element containing this node.
  * @param [config.tree.template] {String} Template for this particular node.
  */
-Y.FWTreeView = Y.Base.create(
-	'fw-treeview',
-	Y.Widget,
-	[Y.FlyweightTreeManager],
+FWTV = Y.Base.create(
+	NAME,
+	Y.FlyweightTreeManager,
+	[],
 	{
         /**
          * Array of iNodes containing a flat list of all nodes visible regardless
@@ -73,25 +72,23 @@ Y.FWTreeView = Y.Base.create(
 			this._loadConfig(config.tree);
 		},
 		/**
-		 * Widget lifecyle method
-		 * I opted for not including this method in FlyweightTreeManager so that
-		 * it can be used to extend Base, not just Widget
+		 * Widget lifecyle method.
+         * Adds the `tree` role to the content box.
 		 * @method renderUI
 		 * @protected
 		 */
 		renderUI: function () {
-			var cbx = this.get(CBX);
-            cbx.setContent(this._getHTML());
-            cbx.set('role','tree');
+            FWTV.superclass.renderUI.apply(this, arguments);
+            this.get(CBX).set('role','tree');
 		},
 		/**
-		 * Widget lifecyle method
-		 * I opted for not including this method in FlyweightTreeManager so that
-		 * it can be used to extend Base, not just Widget
-		 * @method renderUI
+		 * Widget lifecyle method.
+         * Sets the keydown listener to handle keyboard navigation.
+		 * @method bindUI
 		 * @protected
 		 */
         bindUI: function () {
+            FWTV.superclass.bindUI.apply(this, arguments);
             this._eventHandles.push(this.get(CBX).on('keydown', this._onKeyDown, this));
         },
         /**
@@ -308,3 +305,4 @@ Y.FWTreeView = Y.Base.create(
  * @param ev.domEvent {Object} The original event produced by the DOM
  * @param ev.node {FWTreeNode} The node that had the focus when the key was pressed
  */
+Y.FWTreeView = FWTV;

@@ -11,9 +11,8 @@
 		<div id="container"></div>
 		<h1>A dynamic tree with multiple node types:</h1>
 		<p>The nodes of this tree are read from YQL, any replies rely on that service.
-		The long connecting lines might look funny sometimes because they are borrowed from YUI2 TreeView and
-		they assumed limits on the height of a line so for lengthy lines, the sprite overflows into the next element.
-		With a proper sprite, this would not happen.</p>
+            The nodes have references to albums and artists so that by clicking on them
+            or pressing enter while they have the focus, it will navigate away.</p>
 		<div id="dynTree"></div>
         <h1>A tree with checkboxes for selection</h1>
         <p>This tree is built dynamically with randomized labels just to show selection, supposedly of files/folders.  
@@ -35,7 +34,7 @@
 						modules: {
 							'gallery-flyweight-tree': {
 								path:'gallery-flyweight-tree/gallery-flyweight-tree.js',
-								requires:["base-base","base-build","classnamemanager"]
+								requires:["widget","base-build"]
 							},
 							'gallery-fwt-treeview': {
 								path: 'gallery-fwt-treeview/gallery-fwt-treeview.js',

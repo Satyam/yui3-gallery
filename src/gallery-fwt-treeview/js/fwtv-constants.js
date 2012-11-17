@@ -2,7 +2,7 @@
 /*jslint white: true */
 var Lang = Y.Lang,
 	YArray = Y.Array,
-	// DOT = '.',
+    FWTV,
 	getCName = Y.ClassNameManager.getClassName,
 	cName = function (name) {
 		return getCName('fw-treeview', name);
