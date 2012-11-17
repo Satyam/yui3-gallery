@@ -177,29 +177,38 @@ FWMgr = Y.Base.create(
          */
         bindUI: function() {
             var self = this;
- 
+
             self._eventHandles.push(self.after('focus', self._afterFocus));
             if (self._domEvents) {
                 YArray.each(self._domEvents, function (event) {
                     self._eventHandles.push(self.after(event, self._afterDomEvent, self));
                 });
             }
-
-            // This should formally be done via two calls to Y.Do.before and Y.Do.after
-            // but I think it is too heavy.
-            self.fire = (function (original) {
-                return function (type, ev) {
-                    var ret;
-                    if (ev && ev.domEvent) {
-                        ev.node = self._poolFetchFromEvent(ev);
-                        ret = original.call(self, type, ev);
-                        self._poolReturn(ev.node);
-                        return ret;
-                    }
-                    return original.call(self, type, ev);
-                };
-            })(self.fire);
-
+        },
+        /**
+         * Overrides the native `fire` method so that for DOM events,
+         * it will fetch from the pool the fwNode that should have received
+         * the event and add it to the event facade as property `node`.
+         *
+         * @method fire
+         * @param type {String|Object} The type of the event, or an object that contains
+         * a 'type' property.
+         * @param arguments {Object*} an arbitrary set of parameters to pass to
+         * the handler. If the first of these is an object literal and the event is
+         * configured to emit an event facade, the event facade will replace that
+         * parameter after the properties the object literal contains are copied to
+         * the event facade.
+         * @return {Boolean} false if the event was halted.
+         */
+        fire: function (type, ev) {
+            var ret, self = this;
+            if (ev && ev.domEvent) {
+                ev.node = self._poolFetchFromEvent(ev);
+                ret = FWMgr.superclass.fire.call(self, type, ev);
+                self._poolReturn(ev.node);
+                return ret;
+            }
+            return FWMgr.superclass.fire.apply(self, arguments);
         },
         /**
          * Expands all the nodes of the tree.
