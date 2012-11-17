@@ -1,6 +1,6 @@
 {
 	"gallery-flyweight-tree": {
-		"requires":["base-base","base-build","classnamemanager", "event-focus"],
+		"requires":["widget","base-build"],
 		"skinnable": false
 	}
 }

@@ -5,6 +5,7 @@ var Lang = Y.Lang,
 
     DOT = '.',
 	BYPASS_PROXY = "_bypassProxy",
+	CBX = 'contentBox',
 	VALUE = 'value',
     EXPANDED = 'expanded',
     DYNAMIC_LOADER = 'dynamicLoader',
