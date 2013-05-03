@@ -326,8 +326,11 @@ FWMgr = Y.Base.create(
                 if (newNode instanceof Y.FlyweightTreeNode) {
                     // I need to do this otherwise Attribute will initialize
                     // the real iNode with default values when activating a lazyAdd attribute.
-                    newNode._slideTo({});
-                    YArray.each(Y.Object.keys(newNode._state.data), newNode._addLazyAttr, newNode);
+                    
+                    //in yui 3.10 the following does not work, but my tree works without a replacement so far.
+                    //newNode._slideTo({});
+                    //YArray.each(Y.Object.keys(newNode._state.data), newNode._addLazyAttr, newNode);
+                    
                     // newNode.getAttrs();
                     // That's it (see above)
                     newNode._root =  this;
